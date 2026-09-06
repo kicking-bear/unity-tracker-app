@@ -37,9 +37,13 @@ export interface Tournament {
   format: string; status: string
   config: TournamentConfig; sort: number
 }
+export interface TournamentSummary
+  extends Pick<Tournament, 'id' | 'name' | 'slug' | 'sport' | 'division' | 'status'> {
+  live_count?: number; final_count?: number; match_count?: number
+}
 export interface EventRow {
   id: string; name: string; event_date?: string | null; status: string
-  tournaments: Pick<Tournament, 'id' | 'name' | 'slug' | 'sport' | 'division' | 'status'>[]
+  tournaments: TournamentSummary[]
 }
 export interface TournamentState {
   event: { id: string; name: string; event_date?: string | null; status: string } | null

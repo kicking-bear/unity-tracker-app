@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { toast } from 'sonner'
 import { api } from '@/lib/api'
 import { fmtTime, parseLines, serialiseLines, sideOf, stageById, tally, winnerOf } from '@/lib/tournament'
 import type { Match, TournamentState } from '@/lib/types'
@@ -10,7 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { LiveChip } from '@/components/Bracket'
+import { CardHeader, LiveChip } from '@/components/Bracket'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
@@ -32,9 +33,8 @@ export default function MatchSheet({
   const match = state.matches.find(m => m.id === matchId) ?? null
   const [scores, setScores] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
-  const [msg, setMsg] = useState('')
 
-  useEffect(() => { setScores({}); setMsg('') }, [matchId])
+  useEffect(() => { setScores({}) }, [matchId])
 
   if (!match) return <Sheet open={false}><SheetContent /></Sheet>
 
@@ -51,20 +51,20 @@ export default function MatchSheet({
 
   async function save(status: 'final' | 'live') {
     if (!match) return
-    setBusy(true); setMsg('')
+    setBusy(true)
     const periods: { a: number; b: number }[] = []
     for (let i = 0; i < match.best_of; i++) {
       const a = val(i, 'a'), b = val(i, 'b')
       if (a === '' && b === '') continue
       periods.push({ a: Number(a) || 0, b: Number(b) || 0 })
     }
-    if (!periods.length) { setMsg('Enter at least one set.'); setBusy(false); return }
+    if (!periods.length) { toast.error('Enter at least one set'); setBusy(false); return }
     try {
       await api.saveScore({ match_id: match.id, periods, version: match.version, status })
-      setScores({}); setMsg('Saved.'); await onChanged()
+      setScores({}); await onChanged(); toast.success(status === 'final' ? 'Saved as final' : 'Saved in progress')
     } catch (e) {
       const err = e as Error & { status?: number }
-      setMsg(err.status === 409 ? 'Someone else updated this match — reloaded.' : `Save failed: ${err.message}`)
+      toast.error(err.status === 409 ? 'Someone else updated this match — reloaded' : `Save failed: ${err.message}`)
       await onChanged()
     }
     setBusy(false)
@@ -72,30 +72,33 @@ export default function MatchSheet({
 
   async function patch(fields: Record<string, unknown>) {
     if (!match) return
-    try { await api.patchMatch(match.id, fields); await onChanged() }
-    catch (e) { setMsg(`Update failed: ${(e as Error).message}`) }
+    try { await api.patchMatch(match.id, fields); await onChanged(); toast.success('Match updated') }
+    catch (e) { toast.error(`Update failed: ${(e as Error).message}`) }
   }
 
 
   return (
     <Sheet open={!!matchId} onOpenChange={o => { if (!o) onClose() }}>
       <SheetContent side="bottom" className="max-h-[92vh] overflow-y-auto rounded-t-2xl px-5 pb-8 md:inset-auto md:left-1/2 md:top-1/2 md:h-auto md:max-h-[85vh] md:w-[560px] md:max-w-[92vw] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-2xl md:border md:pb-6 md:data-[state=open]:slide-in-from-bottom-0 md:data-[state=closed]:slide-out-to-bottom-0 md:data-[state=open]:zoom-in-95 md:data-[state=closed]:zoom-out-95">
-        <SheetHeader className="px-0 pt-2">
-          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <span className="font-medium text-foreground">{number ?? match.label ?? stage?.name}</span>
-            <Badge variant="outline" className="font-normal">{stage?.name}</Badge>
-            {match.court && <Badge variant="outline" className="font-normal">{match.court}</Badge>}
-            {match.start_time && <span>{fmtTime(match.start_time)}</span>}
-            {match.status === 'live'
-              ? <LiveChip className="ml-auto" />
-              : <Badge variant="secondary" className={cn('ml-auto font-normal',
-                  match.status === 'scheduled' && 'bg-transparent text-muted-foreground')}>
-                  {match.status === 'final' ? 'Final' : 'Scheduled'}
-                </Badge>}
-          </div>
+        <SheetHeader className="-mx-5 px-0 pb-0 pt-0">
+          <CardHeader className="rounded-none" colors={[A.team?.color, B.team?.color]}
+            left={number ?? match.label ?? stage?.name}
+            right={<span className="pr-10 text-white/85">{stage?.name}</span>}
+            live={match.status === 'live'} />
           <SheetTitle className="sr-only">Match detail</SheetTitle>
           <SheetDescription className="sr-only">Scores, sets and officials</SheetDescription>
         </SheetHeader>
+
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          {match.court && <Badge variant="outline" className="font-normal">{match.court}</Badge>}
+          {match.start_time && <span>{fmtTime(match.start_time)}</span>}
+          {match.status !== 'live' && (
+            <Badge variant="secondary" className={cn('font-normal',
+              match.status === 'scheduled' && 'bg-transparent text-muted-foreground')}>
+              {match.status === 'final' ? 'Final' : 'Scheduled'}
+            </Badge>
+          )}
+        </div>
 
         {/* scoreboard */}
         <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
@@ -173,7 +176,6 @@ export default function MatchSheet({
             </div>
           </>
         )}
-        {msg && <p className="mt-2 text-sm text-muted-foreground">{msg}</p>}
 
         {/* admin: schedule + officials */}
         {isAdmin && (
@@ -257,8 +259,8 @@ export default function MatchSheet({
                     <AlertDialogAction
                       className="bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-600"
                       onClick={async () => {
-                        try { await api.deleteMatch(match.id); onClose(); await onChanged() }
-                        catch (e) { setMsg((e as Error).message) }
+                        try { await api.deleteMatch(match.id); onClose(); await onChanged(); toast.success('Match deleted') }
+                        catch (e) { toast.error((e as Error).message) }
                       }}>
                       Delete
                     </AlertDialogAction>

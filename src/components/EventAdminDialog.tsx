@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { toast } from 'sonner'
 import { api } from '@/lib/api'
 import type { EventRow } from '@/lib/types'
 import { Button } from '@/components/ui/button'
@@ -27,24 +28,20 @@ export default function EventAdminDialog({
   const [date, setDate] = useState(event.event_date ?? '')
   const [names, setNames] = useState<Record<string, string>>(
     Object.fromEntries(event.tournaments.map(t => [t.id, t.name])))
-  const [msg, setMsg] = useState('')
 
   async function saveEvent() {
-    setMsg('')
     try {
       await api.patchEvent(event.id, { name: name.trim(), event_date: date || null })
-      await onChanged(); setMsg('Saved.')
-    } catch (e) { setMsg((e as Error).message) }
+      await onChanged(); toast.success('Event saved')
+    } catch (e) { toast.error((e as Error).message) }
   }
-  async function saveTournament(id: string, fields: Record<string, unknown>) {
-    setMsg('')
-    try { await api.patchTournament(id, fields); await onChanged() }
-    catch (e) { setMsg((e as Error).message) }
+  async function saveTournament(id: string, fields: Record<string, unknown>, label: string) {
+    try { await api.patchTournament(id, fields); await onChanged(); toast.success(label) }
+    catch (e) { toast.error((e as Error).message) }
   }
-  async function reset(id: string) {
-    setMsg('')
-    try { await api.resetTournament(id); await onChanged(); setMsg('Tournament reset.') }
-    catch (e) { setMsg((e as Error).message) }
+  async function reset(id: string, label: string) {
+    try { await api.resetTournament(id); await onChanged(); toast.success(`${label} reset — all scores cleared`) }
+    catch (e) { toast.error((e as Error).message) }
   }
 
   return (
@@ -81,7 +78,7 @@ export default function EventAdminDialog({
                     onChange={e => setNames(s => ({ ...s, [t.id]: e.target.value }))} />
                   <Button variant="outline" size="sm" className="h-9"
                     disabled={(names[t.id] ?? '').trim() === t.name}
-                    onClick={() => saveTournament(t.id, { name: (names[t.id] ?? '').trim() })}>
+                    onClick={() => saveTournament(t.id, { name: (names[t.id] ?? '').trim() }, 'Tournament renamed')}>
                     Save
                   </Button>
                 </div>
@@ -90,7 +87,7 @@ export default function EventAdminDialog({
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label>Status</Label>
-                  <Select value={t.status} onValueChange={v => saveTournament(t.id, { status: v })}>
+                  <Select value={t.status} onValueChange={v => saveTournament(t.id, { status: v }, 'Status updated')}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="setup">Setup</SelectItem>
@@ -115,7 +112,7 @@ export default function EventAdminDialog({
                       </AlertDialogHeader>
                       <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => reset(t.id)}
+                        <AlertDialogAction onClick={() => reset(t.id, t.name)}
                           className="bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-600">
                           Reset
                         </AlertDialogAction>
@@ -139,7 +136,6 @@ export default function EventAdminDialog({
           ))}
         </div>
 
-        {msg && <p className="text-sm text-muted-foreground">{msg}</p>}
       </DialogContent>
     </Dialog>
   )

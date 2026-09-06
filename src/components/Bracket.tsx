@@ -33,11 +33,12 @@ const gradient = (colors: (string | null | undefined)[]) => {
   return `linear-gradient(90deg, ${stops.join(', ')})`
 }
 
-function CardHeader({ colors, left, right, live }: {
-  colors: (string | null | undefined)[]; left: React.ReactNode; right?: React.ReactNode; live?: boolean
+export function CardHeader({ colors, left, right, live, className }: {
+  colors: (string | null | undefined)[]; left: React.ReactNode
+  right?: React.ReactNode; live?: boolean; className?: string
 }) {
   return (
-    <div className="relative overflow-hidden rounded-t-xl" style={{ background: gradient(colors) }}>
+    <div className={cn('relative overflow-hidden', className ?? 'rounded-t-xl')} style={{ background: gradient(colors) }}>
       <div className="absolute inset-0 bg-black/45" />
       <div className="relative flex items-center gap-2 px-3 py-2 text-xs text-white">
         <span className="truncate font-semibold">{left}</span>
@@ -152,7 +153,7 @@ function Connectors({ colRef, count }: { colRef: React.RefObject<HTMLDivElement 
   return (
     <svg className="pointer-events-none absolute top-0" style={{ left: '100%', width: GAP, height: h }}
          aria-hidden="true">
-      <g stroke="var(--border)" strokeWidth="1.5" fill="none">
+      <g stroke="var(--muted-foreground)" strokeOpacity="0.55" strokeWidth="1.5" fill="none" strokeLinecap="round">
         {ys.map((y, i) => <path key={i} d={`M0 ${y} H${mid}`} />)}
         <path d={`M${mid} ${ys[0]} V${ys[ys.length - 1]}`} />
         <path d={`M${mid} ${yMid} H${GAP}`} />
@@ -191,7 +192,8 @@ function Column({ state, col, next, liveStage, onSelect, onOpenPool, registerCol
   const mine = col.stages.flatMap(s => state.matches.filter(m => m.stage_id === s.id))
   const theirs = next ? next.stages.flatMap(s => state.matches.filter(m => m.stage_id === s.id)) : []
   const isPool = col.stages[0]?.type === 'pool'
-  const drawConn = !isPool && next && mine.length >= 2 && theirs.length * 2 === mine.length
+  const drawConn = !isPool && !!next && mine.length >= 2 &&
+    (theirs.length * 2 === mine.length || theirs.length === mine.length)
 
   return (
     <div ref={ref} className={cn('relative', COL, fullscreen && 'w-[26rem] max-w-none')}>

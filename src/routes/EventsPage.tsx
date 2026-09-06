@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import StaffCodeRow from '@/components/StaffCodeRow'
 import EventAdminDialog from '@/components/EventAdminDialog'
+import { LiveChip } from '@/components/Bracket'
 
 export default function EventsPage() {
   const { isAdmin } = useRoleContext()
@@ -62,11 +63,14 @@ export default function EventsPage() {
                   <CardHeader className="pb-2">
                     <CardTitle className="text-xl font-semibold tracking-tight">{t.name}</CardTitle>
                   </CardHeader>
-                  <CardContent className="flex items-center justify-between">
+                  <CardContent className="flex items-center justify-between gap-2">
                     <span className="text-xs capitalize text-muted-foreground">
                       {t.sport}{t.division ? ` · ${t.division}` : ''}
+                      {t.match_count ? <> · {t.final_count ?? 0}/{t.match_count} played</> : null}
                     </span>
-                    <Badge variant={t.status === 'live' ? 'default' : 'secondary'}>{t.status}</Badge>
+                    {t.live_count
+                      ? <LiveChip />
+                      : <Badge variant="secondary" className="capitalize">{t.status}</Badge>}
                   </CardContent>
                 </Link>
 
