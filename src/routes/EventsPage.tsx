@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { KeyRound } from 'lucide-react'
+import { KeyRound, Pencil } from 'lucide-react'
 import { api } from '@/lib/api'
 import type { EventRow } from '@/lib/types'
 import { useRoleContext } from '@/lib/roleContext'
@@ -8,17 +8,19 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import StaffCodeRow from '@/components/StaffCodeRow'
+import EventAdminDialog from '@/components/EventAdminDialog'
 
 export default function EventsPage() {
   const { isAdmin } = useRoleContext()
   const [events, setEvents] = useState<EventRow[] | null>(null)
   const [codes, setCodes] = useState<Record<string, string>>({})
   const [showCodes, setShowCodes] = useState(false)
+  const [editing, setEditing] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
 
-  useEffect(() => {
-    api.events().then(d => setEvents(d.events)).catch(e => setErr((e as Error).message))
-  }, [])
+  const loadEvents = useCallback(() =>
+    api.events().then(d => setEvents(d.events)).catch(e => setErr((e as Error).message)), [])
+  useEffect(() => { void loadEvents() }, [loadEvents])
 
   const loadCodes = useCallback(async () => {
     const d = await api.codes()
@@ -42,14 +44,19 @@ export default function EventsPage() {
               <span className="font-mono text-xs text-muted-foreground">{ev.event_date}</span>
             )}
             {isAdmin && (
-              <Button
-                variant="ghost" size="sm"
-                className="ml-auto text-muted-foreground"
-                onClick={() => setShowCodes(v => !v)}
-              >
-                <KeyRound className="mr-1.5 size-3.5" />
-                {showCodes ? 'Hide staff access codes' : 'Staff access codes'}
-              </Button>
+              <div className="ml-auto flex gap-1">
+                <Button variant="ghost" size="sm" className="text-muted-foreground"
+                        onClick={() => setShowCodes(v => !v)}>
+                  <KeyRound className="mr-1.5 size-3.5" />
+                  {showCodes ? 'Hide codes' : 'Staff access codes'}
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setEditing(ev.id)}>
+                  <Pencil className="mr-1.5 size-3.5" />Edit
+                </Button>
+                <EventAdminDialog event={ev} open={editing === ev.id}
+                  onOpenChange={o => setEditing(o ? ev.id : null)}
+                  onChanged={async () => { await loadEvents() }} />
+              </div>
             )}
           </div>
 

@@ -7,7 +7,7 @@ React + Vite + Tailwind v4 + shadcn/ui front end for the Cloudflare Worker tourn
 ```bash
 npm install
 npx shadcn@latest init      # if you want to re-run; components.json is already configured
-npx shadcn@latest add button card table tabs dialog input label badge separator accordion
+npx shadcn@latest add button card table tabs dialog input label badge separator sheet select alert-dialog
 npm run dev
 ```
 

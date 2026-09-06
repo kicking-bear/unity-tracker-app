@@ -153,3 +153,23 @@ export function matchNumbers(s: TournamentState): Record<string, number> {
   const ordered = [...s.matches].sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0))
   return Object.fromEntries(ordered.map((m, i) => [m.id, i + 1]))
 }
+
+/** First stage that still has unfinished matches; falls back to the last stage. */
+export function currentStage(s: TournamentState): Stage | null {
+  const stages = sortStages(s.stages)
+  for (const st of stages) {
+    const ms = s.matches.filter(m => m.stage_id === st.id)
+    if (ms.length && ms.some(m => m.status !== 'final')) return st
+  }
+  return stages[stages.length - 1] ?? null
+}
+
+/** "14:30" -> "2:30 PM"; anything else passes through untouched. */
+export function fmtTime(t?: string | null): string {
+  if (!t) return ''
+  const m = /^(\d{1,2}):(\d{2})$/.exec(t)
+  if (!m) return t
+  const h = Number(m[1]), min = m[2]
+  const ap = h >= 12 ? 'PM' : 'AM'
+  return `${((h + 11) % 12) + 1}:${min} ${ap}`
+}
