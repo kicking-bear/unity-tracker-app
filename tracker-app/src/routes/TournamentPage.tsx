@@ -1,102 +1,124 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { Maximize2, Minimize2 } from 'lucide-react'
 import { useTournament } from '@/lib/useTournament'
-import { sortStages, standings, stageComplete } from '@/lib/tournament'
-import { Card } from '@/components/ui/card'
+import { currentStage, liveStageId, matchNumbers } from '@/lib/tournament'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import MatchRow from '@/components/MatchRow'
+import Bracket, { bracketColumns } from '@/components/Bracket'
+import MatchSheet from '@/components/MatchSheet'
+import PoolSheet from '@/components/PoolSheet'
+import { LiveDot } from '@/components/Bracket'
 
 export default function TournamentPage() {
   const { slug } = useParams()
-  const { state, error } = useTournament(slug)
-  const [stageId, setStageId] = useState<string | null>(null)
+  const { state, error, reload } = useTournament(slug)
+  const [selected, setSelected] = useState<string | null>(null)
+  const [pool, setPool] = useState<string | null>(null)
+  const [active, setActive] = useState<string | null>(null)
+  const [fs, setFs] = useState(false)
+  const cols = useRef<Record<string, HTMLDivElement | null>>({})
+  const scroller = useRef<HTMLDivElement>(null)
+  const wrap = useRef<HTMLDivElement>(null)
+  const positioned = useRef(false)
 
-  const stages = state ? sortStages(state.stages) : []
+  const columns = useMemo(() => (state ? bracketColumns(state) : []), [state])
+  const nums = useMemo(() => (state ? matchNumbers(state) : {}), [state])
+
+  const registerCol = useCallback((key: string, el: HTMLDivElement | null) => { cols.current[key] = el }, [])
+
+  /** Distance the scroller must travel to bring a column to its left edge. */
+  const offsetOf = (el: HTMLDivElement, sc: HTMLDivElement) =>
+    sc.scrollLeft + el.getBoundingClientRect().left - sc.getBoundingClientRect().left - 16
+
+  const goTo = useCallback((key: string) => {
+    const el = cols.current[key], sc = scroller.current
+    if (!el || !sc) return
+    sc.scrollTo({ left: Math.max(0, offsetOf(el, sc)), behavior: 'smooth' })
+    setActive(key)
+  }, [])
+
+  // default position: the stage currently in progress — once, on first load
   useEffect(() => {
-    if (!state || stageId) return
-    const firstOpen = stages.find(s => s.type === 'pool' && !stageComplete(state, s.id))
-    setStageId((firstOpen ?? stages[0])?.id ?? null)
-  }, [state, stageId, stages])
+    if (!state || positioned.current || !columns.length) return
+    const cur = currentStage(state)
+    const key = cur ? (cur.type === 'pool' ? 'pools' : cur.id) : columns[0].key
+    positioned.current = true
+    requestAnimationFrame(() => goTo(key))
+  }, [state, columns, goTo])
+
+  // keep the active tab in sync while the user scrolls
+  useEffect(() => {
+    const sc = scroller.current
+    if (!sc) return
+    const onScroll = () => {
+      const scRect = sc.getBoundingClientRect()
+      let best: string | null = null, bestD = Infinity
+      for (const [k, el] of Object.entries(cols.current)) {
+        if (!el) continue
+        const d = Math.abs(el.getBoundingClientRect().left - scRect.left - 16)
+        if (d < bestD) { bestD = d; best = k }
+      }
+      if (best) setActive(best)
+    }
+    sc.addEventListener('scroll', onScroll, { passive: true })
+    return () => sc.removeEventListener('scroll', onScroll)
+  }, [columns.length])
+
+  // fullscreen for TVs
+  useEffect(() => {
+    const onChange = () => setFs(!!document.fullscreenElement)
+    document.addEventListener('fullscreenchange', onChange)
+    return () => document.removeEventListener('fullscreenchange', onChange)
+  }, [])
+  const toggleFs = () => {
+    if (document.fullscreenElement) void document.exitFullscreen()
+    else void wrap.current?.requestFullscreen?.()
+  }
 
   if (error) return <p className="text-sm text-destructive">{error}</p>
   if (!state?.tournament) return <p className="text-sm text-muted-foreground">Loading…</p>
 
-  const stage = stages.find(s => s.id === stageId) ?? stages[0]
-  const matches = state.matches.filter(m => m.stage_id === stage?.id)
-  const rows = stage?.type === 'pool' ? standings(state, stage.id) : []
-
   return (
-    <div className="space-y-5">
+    <div ref={wrap} className={fs ? 'flex h-screen flex-col bg-background p-6' : 'space-y-3'}>
       <div className="flex items-baseline gap-2">
-        <Link to="/" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
-          {state.event?.name}
-        </Link>
-        <span className="text-sm text-muted-foreground">/</span>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          {state.tournament.name}
+        {!fs && (
+          <>
+            <Link to="/" className="text-sm text-muted-foreground hover:text-foreground">{state.event?.name}</Link>
+            <span className="text-sm text-muted-foreground">/</span>
+          </>
+        )}
+        <h1 className={fs ? 'text-3xl font-semibold tracking-tight' : 'text-2xl font-semibold tracking-tight'}>
+          {fs ? `${state.event?.name} — ${state.tournament.name}` : state.tournament.name}
         </h1>
+        <Button variant="ghost" size="icon" className="ml-auto hidden md:inline-flex"
+                onClick={toggleFs} aria-label={fs ? 'Exit full screen' : 'Full screen'}>
+          {fs ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
+        </Button>
       </div>
 
-      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
-        {stages.map(s => (
-          <Button
-            key={s.id}
-            size="sm"
-            variant={s.id === stage?.id ? 'default' : 'outline'}
-            className="shrink-0 rounded-full "
-            onClick={() => setStageId(s.id)}
-          >
-            {s.name}
-          </Button>
-        ))}
+      {/* stage tabs drive the horizontal scroll */}
+      <div className="-mx-4 flex gap-1 overflow-x-auto px-4 pb-1" style={{ scrollbarWidth: 'none' }}>
+        {columns.map(c => {
+          const live = c.stages.some(st => st.id === liveStageId(state))
+          return (
+            <Button key={c.key} size="sm" variant={active === c.key ? 'default' : 'ghost'}
+                    className="shrink-0 gap-1.5 rounded-full" onClick={() => goTo(c.key)}>
+              {c.label}{live && <LiveDot />}
+            </Button>
+          )
+        })}
       </div>
 
-      {rows.length > 0 && (
-        <Card className="overflow-hidden p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-8" />
-                <TableHead>Team</TableHead>
-                <TableHead className="text-right">W</TableHead>
-                <TableHead className="text-right">L</TableHead>
-                <TableHead className="text-right">Sets</TableHead>
-                <TableHead className="text-right">PD</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((r, i) => {
-                const pd = r.pf - r.pa
-                return (
-                  <TableRow key={r.team.id} className={i < 2 ? 'bg-muted/40' : undefined}>
-                    <TableCell className="font-mono text-xs text-muted-foreground">{i + 1}</TableCell>
-                    <TableCell className="font-medium">
-                      <span
-                        className="mr-2 inline-block size-2.5 rounded-sm align-middle"
-                        style={{ background: r.team.color ?? 'var(--muted-foreground)' }}
-                      />
-                      {r.team.name}
-                      {r.tied && <Badge variant="secondary" className="ml-2 text-[10px]">tie</Badge>}
-                    </TableCell>
-                    <TableCell className="text-right font-mono">{r.w}</TableCell>
-                    <TableCell className="text-right font-mono">{r.l}</TableCell>
-                    <TableCell className="text-right font-mono">{r.sw}–{r.sl}</TableCell>
-                    <TableCell className="text-right font-mono">{pd > 0 ? '+' : ''}{pd}</TableCell>
-                  </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
-        </Card>
-      )}
-
-      <div className="space-y-2">
-        {matches.length
-          ? matches.map(m => <MatchRow key={m.id} state={state} match={m} slug={slug!} />)
-          : <p className="text-sm text-muted-foreground">Not scheduled yet.</p>}
+      <div className={fs ? 'min-h-0 flex-1' : undefined}>
+        <Bracket ref={scroller} state={state} columns={columns} liveStage={liveStageId(state)}
+                 onSelect={setSelected} onOpenPool={setPool} registerCol={registerCol} fullscreen={fs} />
       </div>
+
+      <PoolSheet state={state} stageId={pool} onClose={() => setPool(null)} onSelectMatch={setSelected} />
+
+      <MatchSheet state={state} matchId={selected}
+                  number={selected ? nums[selected] : undefined}
+                  onClose={() => setSelected(null)} onChanged={reload} />
     </div>
   )
 }

@@ -19,6 +19,7 @@ export interface Match {
   source_a?: string | null; source_b?: string | null
   start_time?: string | null; court?: string | null
   ref_team?: string | null; line_team?: string | null
+  ref_name?: string | null; line_names?: string | null
   best_of: number; target: number
   status: 'scheduled' | 'live' | 'final'
   version: number; sort: number
@@ -36,9 +37,13 @@ export interface Tournament {
   format: string; status: string
   config: TournamentConfig; sort: number
 }
+export interface TournamentSummary
+  extends Pick<Tournament, 'id' | 'name' | 'slug' | 'sport' | 'division' | 'status'> {
+  live_count?: number; final_count?: number; match_count?: number
+}
 export interface EventRow {
   id: string; name: string; event_date?: string | null; status: string
-  tournaments: Pick<Tournament, 'id' | 'name' | 'slug' | 'sport' | 'division' | 'status'>[]
+  tournaments: TournamentSummary[]
 }
 export interface TournamentState {
   event: { id: string; name: string; event_date?: string | null; status: string } | null

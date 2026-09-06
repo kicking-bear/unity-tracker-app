@@ -8,6 +8,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Toaster } from '@/components/ui/sonner'
 import { useRole } from '@/lib/useRole'
 import { RoleContext } from '@/lib/roleContext'
 
@@ -124,6 +125,7 @@ export default function Layout() {
           )}
         </DialogContent>
       </Dialog>
+      <Toaster position="bottom-center" richColors closeButton />
     </RoleContext.Provider>
   )
 }

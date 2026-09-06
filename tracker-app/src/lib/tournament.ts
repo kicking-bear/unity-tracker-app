@@ -10,15 +10,34 @@ export function tally(m: Match) {
   return { a, b, pa, pb, played: (m.periods?.length ?? 0) > 0 }
 }
 
-export function winnerOf(m: Match): string | null {
+/**
+ * Winner of a match, resolving each side through the bracket chain.
+ * A knockout match stores NULL team_a/team_b and derives its sides from
+ * source_a/source_b, so we must resolve those before naming a winner.
+ * Depth-limited: brackets are acyclic, but bad data must not hang the UI.
+ */
+export function winnerOf(s: TournamentState, m: Match, depth = 0): string | null {
   const t = tally(m)
   if (m.status !== 'final' || !t.played || t.a === t.b) return null
-  return t.a > t.b ? m.team_a : m.team_b
+  const side = t.a > t.b ? 'a' : 'b'
+  return resolveSideId(s, m, side, depth)
 }
-export function loserOf(m: Match): string | null {
-  const w = winnerOf(m)
-  if (!w) return null
-  return w === m.team_a ? m.team_b : m.team_a
+export function loserOf(s: TournamentState, m: Match, depth = 0): string | null {
+  const t = tally(m)
+  if (m.status !== 'final' || !t.played || t.a === t.b) return null
+  const side = t.a > t.b ? 'b' : 'a'
+  return resolveSideId(s, m, side, depth)
+}
+
+/** Team id on one side of a match — direct if set, otherwise via its source. */
+function resolveSideId(
+  s: TournamentState, m: Match, which: 'a' | 'b', depth = 0,
+): string | null {
+  if (depth > 12) return null
+  const direct = which === 'a' ? m.team_a : m.team_b
+  if (direct) return direct
+  const src = which === 'a' ? m.source_a : m.source_b
+  return resolveSource(s, src, depth + 1).team?.id ?? null
 }
 
 const ratio = (a: number, b: number) => (b === 0 ? (a > 0 ? 99 : 0) : a / b)
@@ -44,7 +63,7 @@ export function standings(s: TournamentState, stageId: string): StandingRow[] {
     const m = s.matches.find(mm => mm.status === 'final' &&
       ((mm.team_a === x.team.id && mm.team_b === y.team.id) ||
        (mm.team_a === y.team.id && mm.team_b === x.team.id)))
-    const w = m ? winnerOf(m) : null
+    const w = m ? winnerOf(s, m) : null
     return !w ? 0 : (w === x.team.id ? -1 : 1)
   }
   const cmp: Record<string, (x: StandingRow, y: StandingRow) => number> = {
@@ -79,7 +98,7 @@ export function stageComplete(s: TournamentState, stageId: string) {
 
 export interface Side { team: Team | null; label: string }
 
-export function resolveSource(s: TournamentState, src?: string | null): Side {
+export function resolveSource(s: TournamentState, src?: string | null, depth = 0): Side {
   if (!src) return { team: null, label: 'TBD' }
   const [kind, ...rest] = src.split(':')
   if (kind === 'rank') {
@@ -94,8 +113,8 @@ export function resolveSource(s: TournamentState, src?: string | null): Side {
   }
   const m = s.matches.find(x => x.id === rest.join(':'))
   const label = (kind === 'winner' ? 'Winner ' : 'Loser ') + (m?.label ?? '')
-  if (!m) return { team: null, label }
-  const id = kind === 'winner' ? winnerOf(m) : loserOf(m)
+  if (!m || depth > 12) return { team: null, label }
+  const id = kind === 'winner' ? winnerOf(s, m, depth) : loserOf(s, m, depth)
   return { team: id ? s.teams.find(t => t.id === id) ?? null : null, label }
 }
 
@@ -128,3 +147,48 @@ export function conflicts(s: TournamentState, m: Match): string[] {
 }
 
 export const sortStages = (stages: Stage[]) => [...stages].sort((a, b) => a.sort - b.sort)
+
+/**
+ * Display identifier per match. The organiser's own label ("G7 · Play-In") wins;
+ * otherwise fall back to a position-derived "G3" so nothing is unlabelled.
+ */
+export function matchNumbers(s: TournamentState): Record<string, string> {
+  const ordered = [...s.matches].sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0))
+  return Object.fromEntries(ordered.map((m, i) => [m.id, m.label?.trim() || `G${i + 1}`]))
+}
+
+/** First stage that still has unfinished matches; falls back to the last stage. */
+export function currentStage(s: TournamentState): Stage | null {
+  const stages = sortStages(s.stages)
+  for (const st of stages) {
+    const ms = s.matches.filter(m => m.stage_id === st.id)
+    if (ms.length && ms.some(m => m.status !== 'final')) return st
+  }
+  return stages[stages.length - 1] ?? null
+}
+
+/** "14:30" -> "2:30 PM"; anything else passes through untouched. */
+export function fmtTime(t?: string | null): string {
+  if (!t) return ''
+  const m = /^(\d{1,2}):(\d{2})$/.exec(t)
+  if (!m) return t
+  const h = Number(m[1]), min = m[2]
+  const ap = h >= 12 ? 'PM' : 'AM'
+  return `${((h + 11) % 12) + 1}:${min} ${ap}`
+}
+
+export const parseLines = (v?: string | null): string[] => {
+  if (!v) return []
+  try { const a = JSON.parse(v); return Array.isArray(a) ? a.filter(Boolean) : [] }
+  catch { return v.split(',').map(x => x.trim()).filter(Boolean) }
+}
+export const serialiseLines = (a: string[]) => JSON.stringify(a.map(x => x.trim()).filter(Boolean))
+
+/** Stage the tournament is currently on, for the live indicator. */
+export function liveStageId(s: TournamentState): string | null {
+  if (s.matches.some(m => m.status === 'live')) {
+    const m = s.matches.find(x => x.status === 'live')!
+    return m.stage_id
+  }
+  return currentStage(s)?.id ?? null
+}
