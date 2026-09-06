@@ -24,8 +24,9 @@ export default function ColorPicker({
           <span className="text-xs font-normal text-muted-foreground">{name ?? 'No colour'}</span>
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-auto p-2">
-        <div className="flex items-center gap-1.5">
+      <PopoverContent align="start" collisionPadding={12} sideOffset={6}
+        className="w-[min(20rem,calc(100vw-2rem))] p-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button type="button" onClick={() => pick(null)} title="No colour" aria-label="No colour"
             className={cn('flex size-7 items-center justify-center rounded-full border transition hover:scale-110',
               !value && 'ring-2 ring-ring ring-offset-2 ring-offset-popover')}>

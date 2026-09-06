@@ -17,11 +17,11 @@ export function LiveDot({ className }: { className?: string }) {
 }
 
 /** Black chip with the pulsing dot — same signal everywhere. */
-export function LiveChip({ className }: { className?: string }) {
+export function LiveChip({ className, label = 'Live' }: { className?: string; label?: string }) {
   return (
-    <span className={cn('inline-flex items-center gap-1.5 rounded-full bg-black px-2 py-0.5',
+    <span className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full bg-black px-2 py-0.5',
       'text-[10px] font-semibold uppercase tracking-wide text-white', className)}>
-      <LiveDot /> Live
+      <LiveDot /> {label}
     </span>
   )
 }
@@ -50,8 +50,13 @@ export function CardHeader({ colors, left, right, live, className }: {
   )
 }
 
-function Side({ s, score, isWin, big }: {
-  s: ReturnType<typeof sideOf>; score: number | string; isWin: boolean; big?: boolean
+/**
+ * One side of a match: name, that side's per-set points, then sets won.
+ * The set a side took is emphasised, so "21 15" reads as won-then-lost.
+ */
+function Side({ s, sets, points, wonSet, isWin, big, played }: {
+  s: ReturnType<typeof sideOf>; sets: number | string
+  points: number[]; wonSet: boolean[]; isWin: boolean; big?: boolean; played: boolean
 }) {
   return (
     <div className="flex items-center gap-2.5 px-3 py-2">
@@ -61,8 +66,19 @@ function Side({ s, score, isWin, big }: {
         isWin ? 'font-semibold' : 'text-muted-foreground', !s.team && 'font-normal italic')}>
         {s.team?.name ?? s.label}
       </span>
-      <span className={cn('font-mono tabular-nums', big ? 'text-2xl' : 'text-lg',
-        isWin ? 'font-semibold' : 'text-muted-foreground')}>{score}</span>
+      {played && points.length > 0 && (
+        <span className="flex shrink-0 items-baseline gap-1.5">
+          {points.map((p, i) => (
+            <span key={i} className={cn('font-mono tabular-nums',
+              wonSet[i] ? 'text-sm font-semibold text-foreground' : 'text-xs text-muted-foreground')}>
+              {p}
+            </span>
+          ))}
+        </span>
+      )}
+      <span className={cn('w-5 shrink-0 text-right font-mono tabular-nums',
+        big ? 'text-2xl' : 'text-lg',
+        isWin ? 'font-semibold' : 'text-muted-foreground')}>{sets}</span>
     </div>
   )
 }
@@ -73,6 +89,10 @@ export function MatchCard({ state, match, number, onSelect, big, muted }: {
 }) {
   const A = sideOf(state, match, 'a'), B = sideOf(state, match, 'b')
   const t = tally(match), w = winnerOf(state, match)
+  const pa = match.periods.map(p => p.score_a)
+  const pb = match.periods.map(p => p.score_b)
+  const wonA = match.periods.map(p => p.score_a > p.score_b)
+  const wonB = match.periods.map(p => p.score_b > p.score_a)
   return (
     <button type="button" onClick={() => onSelect(match.id)} data-match
       className={cn('w-full overflow-hidden rounded-xl border bg-card text-left transition',
@@ -81,8 +101,10 @@ export function MatchCard({ state, match, number, onSelect, big, muted }: {
       <CardHeader colors={[A.team?.color, B.team?.color]} left={number} live={match.status === 'live'}
         right={match.status === 'final' ? 'Final' : match.status === 'live' ? null : fmtTime(match.start_time)} />
       <div className="divide-y">
-        <Side s={A} score={t.played ? t.a : '–'} isWin={!!w && w === A.team?.id} big={big} />
-        <Side s={B} score={t.played ? t.b : '–'} isWin={!!w && w === B.team?.id} big={big} />
+        <Side s={A} sets={t.played ? t.a : '–'} points={pa} wonSet={wonA} played={t.played}
+              isWin={!!w && w === A.team?.id} big={big} />
+        <Side s={B} sets={t.played ? t.b : '–'} points={pb} wonSet={wonB} played={t.played}
+              isWin={!!w && w === B.team?.id} big={big} />
       </div>
       {match.court && <div className="px-3 pb-2 pt-1 text-[11px] text-muted-foreground">{match.court}</div>}
     </button>

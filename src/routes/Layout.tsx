@@ -125,7 +125,7 @@ export default function Layout() {
           )}
         </DialogContent>
       </Dialog>
-      <Toaster position="top-center" richColors closeButton />
+      <Toaster position="bottom-center" richColors closeButton />
     </RoleContext.Provider>
   )
 }

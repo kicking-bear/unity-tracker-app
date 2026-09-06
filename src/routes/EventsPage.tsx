@@ -70,7 +70,11 @@ export default function EventsPage() {
                     </span>
                     {t.live_count
                       ? <LiveChip />
-                      : <Badge variant="secondary" className="capitalize">{t.status}</Badge>}
+                      : (t.final_count ?? 0) > 0 && (t.final_count ?? 0) < (t.match_count ?? 0)
+                        ? <LiveChip label="In play" />
+                        : (t.match_count ?? 0) > 0 && t.final_count === t.match_count
+                          ? <Badge variant="secondary">Complete</Badge>
+                          : <Badge variant="secondary" className="capitalize">{t.status}</Badge>}
                   </CardContent>
                 </Link>
 
