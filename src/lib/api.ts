@@ -66,6 +66,8 @@ export const api = {
     req<{ ok: boolean }>('/api/tournament/' + id, { method: 'PATCH', body: JSON.stringify(fields) }),
   patchEvent: (id: string, fields: Record<string, unknown>) =>
     req<{ ok: boolean }>('/api/event/' + id, { method: 'PATCH', body: JSON.stringify(fields) }),
+  deleteMatch: (id: string) =>
+    req<{ ok: boolean }>('/api/match/' + id, { method: 'DELETE' }),
   resetTournament: (tournament_id: string) =>
     req<{ ok: boolean }>('/api/reset', { method: 'POST', body: JSON.stringify({ tournament_id }) }),
 }

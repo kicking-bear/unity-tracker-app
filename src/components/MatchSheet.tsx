@@ -13,6 +13,10 @@ import { Separator } from '@/components/ui/separator'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
 
 export default function MatchSheet({
   state, matchId, number, onClose, onChanged,
@@ -226,6 +230,38 @@ export default function MatchSheet({
                   }} />
               ))}
               <p className="text-xs text-muted-foreground">Leave a name blank to remove it.</p>
+            </div>
+
+            <div className="mt-5 rounded-lg border border-destructive/40 p-3">
+              <p className="mb-2 text-sm font-medium">Remove this match</p>
+              <p className="mb-3 text-xs text-muted-foreground">
+                Use this for placement matches you are not playing, such as third place.
+              </p>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" size="sm">Delete match</Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete {match.label ?? 'this match'}?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      The match and any scores on it are removed. Anything that feeds off its
+                      result will show TBD. This cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      className="bg-destructive text-white hover:bg-destructive/90"
+                      onClick={async () => {
+                        try { await api.deleteMatch(match.id); onClose(); await onChanged() }
+                        catch (e) { setMsg((e as Error).message) }
+                      }}>
+                      Delete
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           </>
         )}

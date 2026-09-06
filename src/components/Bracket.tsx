@@ -111,13 +111,21 @@ export function bracketColumns(state: TournamentState): BracketColumn[] {
   const stages = sortStages(state.stages)
   const pools = stages.filter(s => s.type === 'pool')
   const ko = stages.filter(s => s.type === 'knockout')
-  const isPlacement = (s: Stage) => /third|fifth|place/i.test(s.name)
-  const final = ko.find(s => /final/i.test(s.name) && !isPlacement(s))
+
+  // placement = third/fifth/etc.  final = the decider, matched exactly so
+  // "Semifinals" is never mistaken for it.
+  const isPlacement = (s: Stage) => /third|fourth|fifth|place|consolation/i.test(s.name)
+  const isFinal = (s: Stage) => /^(the )?finals?$/i.test(s.name.trim())
+  const final = ko.filter(s => !isPlacement(s)).find(isFinal)
+    ?? ko.filter(s => !isPlacement(s)).at(-1) ?? null
+
   const cols: BracketColumn[] = []
   if (pools.length) cols.push({ key: 'pools', label: 'Pool play', stages: pools })
   ko.filter(s => !isPlacement(s) && s.id !== final?.id)
     .forEach(s => cols.push({ key: s.id, label: s.name, stages: [s] }))
-  if (final) cols.push({ key: final.id, label: final.name, stages: [final], minor: ko.filter(isPlacement) })
+  if (final) {
+    cols.push({ key: final.id, label: final.name, stages: [final], minor: ko.filter(isPlacement) })
+  }
   return cols
 }
 
@@ -133,10 +141,10 @@ const Bracket = forwardRef<HTMLDivElement, {
   const nums = matchNumbers(state)
   return (
     <div ref={ref}
-      className={cn('-mx-4 snap-x snap-mandatory overflow-x-auto scroll-smooth px-4',
+      className={cn('-mx-4 snap-x snap-mandatory scroll-pl-4 overflow-x-auto scroll-smooth',
         '[&::-webkit-scrollbar]:hidden', fullscreen && 'h-full')}
       style={{ scrollbarWidth: 'none' }}>
-      <div className={cn('flex gap-4 pb-4', fullscreen && 'h-full items-center px-6')}>
+      <div className={cn('flex w-max gap-4 px-4 pb-4', fullscreen && 'h-full items-center px-8')}>
         {columns.map(col => {
           const live = col.stages.some(s => s.id === liveStage)
           return (
