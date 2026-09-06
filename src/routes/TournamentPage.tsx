@@ -26,10 +26,14 @@ export default function TournamentPage() {
 
   const registerCol = useCallback((key: string, el: HTMLDivElement | null) => { cols.current[key] = el }, [])
 
+  /** Distance the scroller must travel to bring a column to its left edge. */
+  const offsetOf = (el: HTMLDivElement, sc: HTMLDivElement) =>
+    sc.scrollLeft + el.getBoundingClientRect().left - sc.getBoundingClientRect().left - 16
+
   const goTo = useCallback((key: string) => {
     const el = cols.current[key], sc = scroller.current
     if (!el || !sc) return
-    sc.scrollTo({ left: el.offsetLeft - 16, behavior: 'smooth' })
+    sc.scrollTo({ left: Math.max(0, offsetOf(el, sc)), behavior: 'smooth' })
     setActive(key)
   }, [])
 
@@ -47,10 +51,11 @@ export default function TournamentPage() {
     const sc = scroller.current
     if (!sc) return
     const onScroll = () => {
+      const scRect = sc.getBoundingClientRect()
       let best: string | null = null, bestD = Infinity
       for (const [k, el] of Object.entries(cols.current)) {
         if (!el) continue
-        const d = Math.abs(el.offsetLeft - 16 - sc.scrollLeft)
+        const d = Math.abs(el.getBoundingClientRect().left - scRect.left - 16)
         if (d < bestD) { bestD = d; best = k }
       }
       if (best) setActive(best)

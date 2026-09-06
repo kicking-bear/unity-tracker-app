@@ -23,7 +23,7 @@ export default function MatchSheet({
 }: {
   state: TournamentState
   matchId: string | null
-  number?: number
+  number?: string
   onClose: () => void
   onChanged: () => Promise<void>
 }) {
@@ -81,8 +81,8 @@ export default function MatchSheet({
       <SheetContent side="bottom" className="max-h-[92vh] overflow-y-auto rounded-t-2xl px-5 pb-8">
         <SheetHeader className="px-0 pt-2">
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            {number != null && <span className="font-mono font-medium text-foreground">#{number}</span>}
-            <Badge variant="outline" className="font-normal">{match.label ?? stage?.name}</Badge>
+            <span className="font-medium text-foreground">{number ?? match.label ?? stage?.name}</span>
+            <Badge variant="outline" className="font-normal">{stage?.name}</Badge>
             {match.court && <Badge variant="outline" className="font-normal">{match.court}</Badge>}
             {match.start_time && <span>{fmtTime(match.start_time)}</span>}
             <Badge variant={match.status === 'live' ? 'default' : 'secondary'}

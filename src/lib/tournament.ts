@@ -148,10 +148,13 @@ export function conflicts(s: TournamentState, m: Match): string[] {
 
 export const sortStages = (stages: Stage[]) => [...stages].sort((a, b) => a.sort - b.sort)
 
-/** Stable display number for a match, by sort order within the tournament. */
-export function matchNumbers(s: TournamentState): Record<string, number> {
+/**
+ * Display identifier per match. The organiser's own label ("G7 · Play-In") wins;
+ * otherwise fall back to a position-derived "G3" so nothing is unlabelled.
+ */
+export function matchNumbers(s: TournamentState): Record<string, string> {
   const ordered = [...s.matches].sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0))
-  return Object.fromEntries(ordered.map((m, i) => [m.id, i + 1]))
+  return Object.fromEntries(ordered.map((m, i) => [m.id, m.label?.trim() || `G${i + 1}`]))
 }
 
 /** First stage that still has unfinished matches; falls back to the last stage. */

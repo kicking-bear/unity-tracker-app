@@ -33,7 +33,7 @@ function Side({ s, score, isWin, big }: {
 }
 
 export function MatchCard({ state, match, number, onSelect, big, muted }: {
-  state: TournamentState; match: Match; number: number
+  state: TournamentState; match: Match; number: string
   onSelect: (id: string) => void; big?: boolean; muted?: boolean
 }) {
   const A = sideOf(state, match, 'a'), B = sideOf(state, match, 'b')
@@ -45,8 +45,7 @@ export function MatchCard({ state, match, number, onSelect, big, muted }: {
         match.status === 'live' && 'border-emerald-500/60',
         muted && 'opacity-70')}>
       <div className="flex items-center gap-2 px-3 pt-2.5 text-xs text-muted-foreground">
-        <span className="font-mono font-medium text-foreground">#{number}</span>
-        <span className="truncate">{match.label ?? ''}</span>
+        <span className="truncate font-medium text-foreground">{number}</span>
         <span className="ml-auto flex shrink-0 items-center gap-1.5">
           {match.status === 'live' && <LiveDot />}
           {match.status === 'final' ? 'Final' : fmtTime(match.start_time) || ''}
@@ -141,7 +140,7 @@ const Bracket = forwardRef<HTMLDivElement, {
   const nums = matchNumbers(state)
   return (
     <div ref={ref}
-      className={cn('-mx-4 snap-x snap-mandatory scroll-pl-4 overflow-x-auto scroll-smooth',
+      className={cn('-mx-4 snap-x snap-proximity scroll-pl-4 overflow-x-auto scroll-smooth',
         '[&::-webkit-scrollbar]:hidden', fullscreen && 'h-full')}
       style={{ scrollbarWidth: 'none' }}>
       <div className={cn('flex w-max gap-4 px-4 pb-4', fullscreen && 'h-full items-center px-8')}>
