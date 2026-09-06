@@ -89,4 +89,13 @@
   input[type="number"]::-webkit-outer-spin-button,
   input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
+
+  /* close buttons on sheets / dialogs: make them an obvious target */
+  [data-slot$="-close"],
+  [role="dialog"] > button.absolute {
+    @apply top-3 right-3 flex size-9 items-center justify-center rounded-full
+           bg-muted text-foreground opacity-100 ring-0 transition hover:bg-accent;
+  }
+  [data-slot$="-close"] svg,
+  [role="dialog"] > button.absolute svg { @apply size-4; }
 }

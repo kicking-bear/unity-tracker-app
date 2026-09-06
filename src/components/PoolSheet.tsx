@@ -21,7 +21,7 @@ export default function PoolSheet({
 
   return (
     <Sheet open={!!stageId} onOpenChange={o => { if (!o) onClose() }}>
-      <SheetContent side="bottom" className="max-h-[92vh] overflow-y-auto rounded-t-2xl px-5 pb-8">
+      <SheetContent side="bottom" className="max-h-[92vh] overflow-y-auto rounded-t-2xl px-5 pb-8 md:inset-auto md:left-1/2 md:top-1/2 md:h-auto md:max-h-[85vh] md:w-[560px] md:max-w-[92vw] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-2xl md:border md:pb-6 md:data-[state=open]:slide-in-from-bottom-0 md:data-[state=closed]:slide-out-to-bottom-0 md:data-[state=open]:zoom-in-95 md:data-[state=closed]:zoom-out-95">
         <SheetHeader className="px-0 pt-2">
           <SheetTitle className="text-xl font-semibold tracking-tight">{stage.name}</SheetTitle>
           <SheetDescription>Standings and matches</SheetDescription>

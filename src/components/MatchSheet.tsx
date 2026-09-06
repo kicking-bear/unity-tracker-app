@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
+import { LiveChip } from '@/components/Bracket'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
@@ -78,17 +79,19 @@ export default function MatchSheet({
 
   return (
     <Sheet open={!!matchId} onOpenChange={o => { if (!o) onClose() }}>
-      <SheetContent side="bottom" className="max-h-[92vh] overflow-y-auto rounded-t-2xl px-5 pb-8">
+      <SheetContent side="bottom" className="max-h-[92vh] overflow-y-auto rounded-t-2xl px-5 pb-8 md:inset-auto md:left-1/2 md:top-1/2 md:h-auto md:max-h-[85vh] md:w-[560px] md:max-w-[92vw] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-2xl md:border md:pb-6 md:data-[state=open]:slide-in-from-bottom-0 md:data-[state=closed]:slide-out-to-bottom-0 md:data-[state=open]:zoom-in-95 md:data-[state=closed]:zoom-out-95">
         <SheetHeader className="px-0 pt-2">
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <span className="font-medium text-foreground">{number ?? match.label ?? stage?.name}</span>
             <Badge variant="outline" className="font-normal">{stage?.name}</Badge>
             {match.court && <Badge variant="outline" className="font-normal">{match.court}</Badge>}
             {match.start_time && <span>{fmtTime(match.start_time)}</span>}
-            <Badge variant={match.status === 'live' ? 'default' : 'secondary'}
-                   className={cn('ml-auto font-normal', match.status === 'scheduled' && 'bg-transparent text-muted-foreground')}>
-              {match.status === 'final' ? 'Final' : match.status === 'live' ? 'Live' : 'Scheduled'}
-            </Badge>
+            {match.status === 'live'
+              ? <LiveChip className="ml-auto" />
+              : <Badge variant="secondary" className={cn('ml-auto font-normal',
+                  match.status === 'scheduled' && 'bg-transparent text-muted-foreground')}>
+                  {match.status === 'final' ? 'Final' : 'Scheduled'}
+                </Badge>}
           </div>
           <SheetTitle className="sr-only">Match detail</SheetTitle>
           <SheetDescription className="sr-only">Scores, sets and officials</SheetDescription>
@@ -239,7 +242,7 @@ export default function MatchSheet({
               </p>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button variant="destructive" size="sm">Delete match</Button>
+                  <Button size="sm" className="bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-600">Delete match</Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
@@ -252,7 +255,7 @@ export default function MatchSheet({
                   <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
                     <AlertDialogAction
-                      className="bg-destructive text-white hover:bg-destructive/90"
+                      className="bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-600"
                       onClick={async () => {
                         try { await api.deleteMatch(match.id); onClose(); await onChanged() }
                         catch (e) { setMsg((e as Error).message) }

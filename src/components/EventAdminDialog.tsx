@@ -103,7 +103,7 @@ export default function EventAdminDialog({
                   <Label>Danger zone</Label>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button variant="destructive" className="w-full">Reset tournament</Button>
+                      <Button className="w-full bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-600">Reset tournament</Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
@@ -116,7 +116,7 @@ export default function EventAdminDialog({
                       <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
                         <AlertDialogAction onClick={() => reset(t.id)}
-                          className="bg-destructive text-white hover:bg-destructive/90">
+                          className="bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-600">
                           Reset
                         </AlertDialogAction>
                       </AlertDialogFooter>

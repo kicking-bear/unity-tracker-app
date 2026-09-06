@@ -44,12 +44,7 @@ export default function EventsPage() {
               <span className="font-mono text-xs text-muted-foreground">{ev.event_date}</span>
             )}
             {isAdmin && (
-              <div className="ml-auto flex gap-1">
-                <Button variant="ghost" size="sm" className="text-muted-foreground"
-                        onClick={() => setShowCodes(v => !v)}>
-                  <KeyRound className="mr-1.5 size-3.5" />
-                  {showCodes ? 'Hide codes' : 'Staff access codes'}
-                </Button>
+              <div className="ml-auto">
                 <Button variant="outline" size="sm" onClick={() => setEditing(ev.id)}>
                   <Pencil className="mr-1.5 size-3.5" />Edit
                 </Button>
@@ -91,6 +86,16 @@ export default function EventsPage() {
               <p className="text-sm text-muted-foreground">No tournaments yet.</p>
             )}
           </div>
+
+          {isAdmin && (
+            <div className="mt-4 flex justify-end">
+              <Button variant="ghost" size="sm" className="text-muted-foreground"
+                      onClick={() => setShowCodes(v => !v)}>
+                <KeyRound className="mr-1.5 size-3.5" />
+                {showCodes ? 'Hide staff access codes' : 'Staff access codes'}
+              </Button>
+            </div>
+          )}
         </Card>
       ))}
     </div>
