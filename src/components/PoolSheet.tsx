@@ -22,7 +22,7 @@ export default function PoolSheet({
   return (
     <Sheet open={!!stageId} onOpenChange={o => { if (!o) onClose() }}>
       <SheetContent side="bottom" className="max-h-[92vh] overflow-y-auto rounded-t-2xl px-5 pb-8 md:inset-auto md:left-1/2 md:top-1/2 md:h-auto md:max-h-[85vh] md:w-[560px] md:max-w-[92vw] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-2xl md:border md:pb-6 md:data-[state=open]:slide-in-from-bottom-0 md:data-[state=closed]:slide-out-to-bottom-0 md:data-[state=open]:zoom-in-95 md:data-[state=closed]:zoom-out-95">
-        <SheetHeader className="-mx-5 px-0 pb-0 pt-0">
+        <SheetHeader className="-mx-5 shrink-0 px-0 pb-0 pt-0">
           <CardHeader className="rounded-none" colors={rows.map(r => r.team.color)}
             left={stage.name}
             right={<span className="pr-10 font-mono text-white/85">
@@ -33,7 +33,7 @@ export default function PoolSheet({
           <SheetDescription className="sr-only">Standings and matches</SheetDescription>
         </SheetHeader>
 
-        <div className="mt-4 overflow-hidden rounded-xl border">
+        <div className="mt-4 shrink-0 overflow-hidden rounded-xl border">
           {rows.map((r, i) => {
             const pd = r.pf - r.pa
             return (
@@ -58,9 +58,9 @@ export default function PoolSheet({
           })}
         </div>
 
-        <Separator className="my-5" />
-        <h3 className="mb-3 text-base font-semibold">Matches</h3>
-        <div className="space-y-2.5">
+        <Separator className="my-5 shrink-0" />
+        <h3 className="mb-3 shrink-0 text-base font-semibold">Matches</h3>
+        <div className="shrink-0 space-y-2.5">
           {matches.map(m => (
             <MatchCard key={m.id} state={state} match={m} number={nums[m.id]}
                        onSelect={id => { onClose(); onSelectMatch(id) }} />

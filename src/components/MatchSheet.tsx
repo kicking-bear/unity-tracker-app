@@ -80,7 +80,7 @@ export default function MatchSheet({
   return (
     <Sheet open={!!matchId} onOpenChange={o => { if (!o) onClose() }}>
       <SheetContent side="bottom" className="max-h-[92vh] overflow-y-auto rounded-t-2xl px-5 pb-8 md:inset-auto md:left-1/2 md:top-1/2 md:h-auto md:max-h-[85vh] md:w-[560px] md:max-w-[92vw] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-2xl md:border md:pb-6 md:data-[state=open]:slide-in-from-bottom-0 md:data-[state=closed]:slide-out-to-bottom-0 md:data-[state=open]:zoom-in-95 md:data-[state=closed]:zoom-out-95">
-        <SheetHeader className="-mx-5 px-0 pb-0 pt-0">
+        <SheetHeader className="-mx-5 shrink-0 px-0 pb-0 pt-0">
           <CardHeader className="rounded-none" colors={[A.team?.color, B.team?.color]}
             left={number ?? match.label ?? stage?.name}
             right={<span className="pr-10 text-white/85">{stage?.name}</span>}
@@ -89,7 +89,7 @@ export default function MatchSheet({
           <SheetDescription className="sr-only">Scores, sets and officials</SheetDescription>
         </SheetHeader>
 
-        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        <div className="mt-3 flex shrink-0 flex-wrap items-center gap-2 text-xs text-muted-foreground">
           {match.court && <Badge variant="outline" className="font-normal">{match.court}</Badge>}
           {match.start_time && <span>{fmtTime(match.start_time)}</span>}
           {match.status !== 'live' && (
@@ -101,7 +101,7 @@ export default function MatchSheet({
         </div>
 
         {/* scoreboard */}
-        <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+        <div className="mt-3 grid shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-3">
           {[A, B].map((s, k) => {
             const isWin = !!w && w === s.team?.id
             const score = t.played ? (k === 0 ? t.a : t.b) : '–'
@@ -121,7 +121,7 @@ export default function MatchSheet({
         </div>
 
         {match.periods.length > 0 && (
-          <div className="mt-4 space-y-1.5">
+          <div className="mt-4 shrink-0 space-y-1.5">
             {match.periods.map(p => (
               <div key={p.id} className="flex items-center gap-4 text-base">
                 <span className="w-14 text-sm text-muted-foreground">Set {p.no}</span>
@@ -144,7 +144,7 @@ export default function MatchSheet({
         {/* score entry */}
         {canScore && (
           <>
-            <Separator className="my-5" />
+            <Separator className="my-5 shrink-0" />
             <h3 className="text-base font-semibold">Enter score</h3>
             <div className="mt-3 flex items-end gap-3">
               <span className="flex-1" />
@@ -180,9 +180,9 @@ export default function MatchSheet({
         {/* admin: schedule + officials */}
         {isAdmin && (
           <>
-            <Separator className="my-5" />
+            <Separator className="my-5 shrink-0" />
             <h3 className="text-base font-semibold">Match setup</h3>
-            <div className="mt-3 grid grid-cols-2 gap-3">
+            <div className="mt-3 grid shrink-0 grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="mt-time">Start time</Label>
                 <Input id="mt-time" type="time" defaultValue={match.start_time ?? ''}
@@ -274,8 +274,8 @@ export default function MatchSheet({
         {/* rosters */}
         {[A, B].some(s => s.team) && (
           <>
-            <Separator className="my-5" />
-            <div className="grid gap-4 sm:grid-cols-2">
+            <Separator className="my-5 shrink-0" />
+            <div className="grid shrink-0 gap-4 sm:grid-cols-2">
               {[A, B].map((s, k) => s.team && (
                 <div key={k}>
                   <p className="mb-1.5 text-sm font-medium">{s.team.name}
