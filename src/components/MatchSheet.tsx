@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '@/lib/api'
-import { fmtTime, sideOf, stageById, tally, teamById, winnerOf } from '@/lib/tournament'
+import { fmtTime, parseLines, serialiseLines, sideOf, stageById, tally, winnerOf } from '@/lib/tournament'
 import type { Match, TournamentState } from '@/lib/types'
 import { useRoleContext } from '@/lib/roleContext'
 import { cn } from '@/lib/utils'
@@ -38,8 +38,7 @@ export default function MatchSheet({
   const t = tally(match)
   const w = winnerOf(state, match)
   const stage = stageById(state, match.stage_id)
-  const ref = teamById(state, match.ref_team)
-  const line = teamById(state, match.line_team)
+  const lineJudges = parseLines(match.line_names)
   const canScore = isStaff && !!A.team && !!B.team
 
   const val = (i: number, side: 'a' | 'b') =>
@@ -72,7 +71,6 @@ export default function MatchSheet({
     catch (e) { setMsg(`Update failed: ${(e as Error).message}`) }
   }
 
-  const teamOpts = state.teams.map(tm => ({ id: tm.id, name: tm.name }))
 
   return (
     <Sheet open={!!matchId} onOpenChange={o => { if (!o) onClose() }}>
@@ -125,11 +123,11 @@ export default function MatchSheet({
           </div>
         )}
 
-        {(ref || line) && (
+        {(match.ref_name || lineJudges.length > 0) && (
           <p className="mt-3 text-sm text-muted-foreground">
-            Ref <span className="text-foreground">{ref?.name ?? '—'}</span>
-            <span className="mx-2">·</span>
-            Lines <span className="text-foreground">{line?.name ?? '—'}</span>
+            {match.ref_name && <>Ref <span className="text-foreground">{match.ref_name}</span></>}
+            {match.ref_name && lineJudges.length > 0 && <span className="mx-2">·</span>}
+            {lineJudges.length > 0 && <>Lines <span className="text-foreground">{lineJudges.join(', ')}</span></>}
           </p>
         )}
 
@@ -206,26 +204,28 @@ export default function MatchSheet({
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1.5">
-                <Label>Referee</Label>
-                <Select value={match.ref_team ?? 'none'} onValueChange={v => patch({ ref_team: v === 'none' ? null : v })}>
-                  <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    {teamOpts.map(o => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Line judges</Label>
-                <Select value={match.line_team ?? 'none'} onValueChange={v => patch({ line_team: v === 'none' ? null : v })}>
-                  <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    {teamOpts.map(o => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
+            </div>
+
+            <div className="mt-3 space-y-1.5">
+              <Label htmlFor="mt-ref">Referee</Label>
+              <Input id="mt-ref" defaultValue={match.ref_name ?? ''} placeholder="Name"
+                onBlur={e => e.target.value !== (match.ref_name ?? '') && patch({ ref_name: e.target.value || null })} />
+            </div>
+
+            <div className="mt-3 space-y-1.5">
+              <Label>Line judges</Label>
+              {[...lineJudges, ''].map((v, i) => (
+                <Input key={i} defaultValue={v} placeholder={i === 0 ? 'Name' : 'Add another'}
+                  onBlur={e => {
+                    const next = [...lineJudges]
+                    if (i < next.length) next[i] = e.target.value
+                    else if (e.target.value.trim()) next.push(e.target.value)
+                    else return
+                    if (serialiseLines(next) !== serialiseLines(lineJudges))
+                      patch({ line_names: serialiseLines(next) })
+                  }} />
+              ))}
+              <p className="text-xs text-muted-foreground">Leave a name blank to remove it.</p>
             </div>
           </>
         )}

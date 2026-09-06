@@ -2,15 +2,18 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Maximize2, Minimize2 } from 'lucide-react'
 import { useTournament } from '@/lib/useTournament'
-import { currentStage, matchNumbers } from '@/lib/tournament'
+import { currentStage, liveStageId, matchNumbers } from '@/lib/tournament'
 import { Button } from '@/components/ui/button'
 import Bracket, { bracketColumns } from '@/components/Bracket'
 import MatchSheet from '@/components/MatchSheet'
+import PoolSheet from '@/components/PoolSheet'
+import { LiveDot } from '@/components/Bracket'
 
 export default function TournamentPage() {
   const { slug } = useParams()
   const { state, error, reload } = useTournament(slug)
   const [selected, setSelected] = useState<string | null>(null)
+  const [pool, setPool] = useState<string | null>(null)
   const [active, setActive] = useState<string | null>(null)
   const [fs, setFs] = useState(false)
   const cols = useRef<Record<string, HTMLDivElement | null>>({})
@@ -90,18 +93,23 @@ export default function TournamentPage() {
 
       {/* stage tabs drive the horizontal scroll */}
       <div className="-mx-4 flex gap-1 overflow-x-auto px-4 pb-1" style={{ scrollbarWidth: 'none' }}>
-        {columns.map(c => (
-          <Button key={c.key} size="sm" variant={active === c.key ? 'default' : 'ghost'}
-                  className="shrink-0 rounded-full" onClick={() => goTo(c.key)}>
-            {c.label}
-          </Button>
-        ))}
+        {columns.map(c => {
+          const live = c.stages.some(st => st.id === liveStageId(state))
+          return (
+            <Button key={c.key} size="sm" variant={active === c.key ? 'default' : 'ghost'}
+                    className="shrink-0 gap-1.5 rounded-full" onClick={() => goTo(c.key)}>
+              {c.label}{live && <LiveDot />}
+            </Button>
+          )
+        })}
       </div>
 
       <div className={fs ? 'min-h-0 flex-1' : undefined}>
-        <Bracket ref={scroller} state={state} columns={columns}
-                 onSelect={setSelected} registerCol={registerCol} fullscreen={fs} />
+        <Bracket ref={scroller} state={state} columns={columns} liveStage={liveStageId(state)}
+                 onSelect={setSelected} onOpenPool={setPool} registerCol={registerCol} fullscreen={fs} />
       </div>
+
+      <PoolSheet state={state} stageId={pool} onClose={() => setPool(null)} onSelectMatch={setSelected} />
 
       <MatchSheet state={state} matchId={selected}
                   number={selected ? nums[selected] : undefined}

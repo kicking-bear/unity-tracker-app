@@ -19,6 +19,7 @@ export interface Match {
   source_a?: string | null; source_b?: string | null
   start_time?: string | null; court?: string | null
   ref_team?: string | null; line_team?: string | null
+  ref_name?: string | null; line_names?: string | null
   best_of: number; target: number
   status: 'scheduled' | 'live' | 'final'
   version: number; sort: number

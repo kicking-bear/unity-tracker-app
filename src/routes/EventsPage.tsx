@@ -37,8 +37,8 @@ export default function EventsPage() {
   return (
     <div className="space-y-10">
       {events.map(ev => (
-        <section key={ev.id}>
-          <div className="mb-3 flex flex-wrap items-baseline gap-3 border-b pb-2">
+        <Card key={ev.id} className="p-5">
+          <div className="mb-4 flex flex-wrap items-baseline gap-3 border-b pb-3">
             <h2 className="text-2xl font-semibold tracking-tight">{ev.name}</h2>
             {ev.event_date && (
               <span className="font-mono text-xs text-muted-foreground">{ev.event_date}</span>
@@ -60,9 +60,9 @@ export default function EventsPage() {
             )}
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2">
             {ev.tournaments.map(t => (
-              <Card key={t.id} className="flex flex-col">
+              <Card key={t.id} className="flex flex-col bg-muted/30">
                 <Link to={`/t/${t.slug}`} className="flex-1">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-xl font-semibold tracking-tight">{t.name}</CardTitle>
@@ -91,7 +91,7 @@ export default function EventsPage() {
               <p className="text-sm text-muted-foreground">No tournaments yet.</p>
             )}
           </div>
-        </section>
+        </Card>
       ))}
     </div>
   )

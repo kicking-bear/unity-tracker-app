@@ -15,6 +15,10 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
+import {
+  Accordion, AccordionContent, AccordionItem, AccordionTrigger,
+} from '@/components/ui/accordion'
+import TeamEditor from '@/components/TeamEditor'
 
 export default function EventAdminDialog({
   event, open, onOpenChange, onChanged,
@@ -120,6 +124,17 @@ export default function EventAdminDialog({
                   </AlertDialog>
                 </div>
               </div>
+
+              <Accordion type="single" collapsible>
+                <AccordionItem value="teams" className="border-none">
+                  <AccordionTrigger className="py-2 text-sm hover:no-underline">
+                    Teams &amp; colours
+                  </AccordionTrigger>
+                  <AccordionContent className="pb-2">
+                    <TeamEditor slug={t.slug} onChanged={onChanged} />
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
             </div>
           ))}
         </div>

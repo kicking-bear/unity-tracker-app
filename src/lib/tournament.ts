@@ -173,3 +173,19 @@ export function fmtTime(t?: string | null): string {
   const ap = h >= 12 ? 'PM' : 'AM'
   return `${((h + 11) % 12) + 1}:${min} ${ap}`
 }
+
+export const parseLines = (v?: string | null): string[] => {
+  if (!v) return []
+  try { const a = JSON.parse(v); return Array.isArray(a) ? a.filter(Boolean) : [] }
+  catch { return v.split(',').map(x => x.trim()).filter(Boolean) }
+}
+export const serialiseLines = (a: string[]) => JSON.stringify(a.map(x => x.trim()).filter(Boolean))
+
+/** Stage the tournament is currently on, for the live indicator. */
+export function liveStageId(s: TournamentState): string | null {
+  if (s.matches.some(m => m.status === 'live')) {
+    const m = s.matches.find(x => x.status === 'live')!
+    return m.stage_id
+  }
+  return currentStage(s)?.id ?? null
+}

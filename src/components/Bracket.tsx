@@ -4,7 +4,16 @@ import type { Match, Stage, TournamentState } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 
-const COL = 'w-[calc(50vw-1.75rem)] min-w-[200px] shrink-0 snap-start md:w-72'
+const COL = 'w-[calc(100vw-4.5rem)] max-w-[22rem] shrink-0 snap-start sm:w-72'
+
+export function LiveDot({ className }: { className?: string }) {
+  return (
+    <span className={cn('relative inline-flex size-2', className)}>
+      <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-500 opacity-75" />
+      <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
+    </span>
+  )
+}
 
 function Side({ s, score, isWin, big }: {
   s: ReturnType<typeof sideOf>; score: number | string; isWin: boolean; big?: boolean
@@ -13,19 +22,19 @@ function Side({ s, score, isWin, big }: {
     <div className="flex items-center gap-2.5 px-3 py-2">
       <span className="inline-block h-5 w-1 shrink-0 rounded-sm"
             style={{ background: s.team?.color ?? 'var(--border)' }} />
-      <span className={cn('min-w-0 flex-1 truncate leading-tight', big ? 'text-base' : 'text-sm',
-        isWin ? 'font-semibold' : 'text-muted-foreground',
-        !s.team && 'font-normal italic')}>
+      <span className={cn('min-w-0 flex-1 truncate leading-tight', big ? 'text-lg' : 'text-sm',
+        isWin ? 'font-semibold' : 'text-muted-foreground', !s.team && 'font-normal italic')}>
         {s.team?.name ?? s.label}
       </span>
-      <span className={cn('font-mono tabular-nums', big ? 'text-xl' : 'text-lg',
+      <span className={cn('font-mono tabular-nums', big ? 'text-2xl' : 'text-lg',
         isWin ? 'font-semibold' : 'text-muted-foreground')}>{score}</span>
     </div>
   )
 }
 
-function MatchCard({ state, match, number, onSelect, big }: {
-  state: TournamentState; match: Match; number: number; onSelect: (id: string) => void; big?: boolean
+export function MatchCard({ state, match, number, onSelect, big, muted }: {
+  state: TournamentState; match: Match; number: number
+  onSelect: (id: string) => void; big?: boolean; muted?: boolean
 }) {
   const A = sideOf(state, match, 'a'), B = sideOf(state, match, 'b')
   const t = tally(match), w = winnerOf(state, match)
@@ -33,34 +42,39 @@ function MatchCard({ state, match, number, onSelect, big }: {
     <button type="button" onClick={() => onSelect(match.id)}
       className={cn('w-full rounded-xl border bg-card text-left transition',
         'hover:border-foreground/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-        match.status === 'live' && 'border-foreground/50')}>
+        match.status === 'live' && 'border-emerald-500/60',
+        muted && 'opacity-70')}>
       <div className="flex items-center gap-2 px-3 pt-2.5 text-xs text-muted-foreground">
         <span className="font-mono font-medium text-foreground">#{number}</span>
         <span className="truncate">{match.label ?? ''}</span>
-        <span className="ml-auto shrink-0">
-          {match.status === 'final' ? 'Final' : match.status === 'live'
-            ? <Badge className="h-5 px-1.5 text-[10px]">Live</Badge>
-            : fmtTime(match.start_time) || ''}
+        <span className="ml-auto flex shrink-0 items-center gap-1.5">
+          {match.status === 'live' && <LiveDot />}
+          {match.status === 'final' ? 'Final' : fmtTime(match.start_time) || ''}
         </span>
       </div>
       <div className="mt-1 divide-y">
         <Side s={A} score={t.played ? t.a : '–'} isWin={!!w && w === A.team?.id} big={big} />
         <Side s={B} score={t.played ? t.b : '–'} isWin={!!w && w === B.team?.id} big={big} />
       </div>
-      {match.court && (
-        <div className="px-3 pb-2 pt-1 text-[11px] text-muted-foreground">{match.court}</div>
-      )}
+      {match.court && <div className="px-3 pb-2 pt-1 text-[11px] text-muted-foreground">{match.court}</div>}
     </button>
   )
 }
 
-function PoolCard({ state, stage }: { state: TournamentState; stage: Stage }) {
+function PoolCard({ state, stage, onOpenPool }: {
+  state: TournamentState; stage: Stage; onOpenPool: (id: string) => void
+}) {
   const rows = standings(state, stage.id)
+  const ms = state.matches.filter(m => m.stage_id === stage.id)
+  const done = ms.filter(m => m.status === 'final').length
   return (
-    <div className="rounded-xl border bg-card">
-      <div className="flex items-baseline justify-between px-3 pb-1 pt-2.5">
+    <button type="button" onClick={() => onOpenPool(stage.id)}
+      className="w-full rounded-xl border bg-card text-left transition hover:border-foreground/40
+                 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+      <div className="flex items-baseline gap-2 px-3 pb-1 pt-2.5">
         <span className="text-sm font-semibold">{stage.name}</span>
-        <span className="text-[11px] text-muted-foreground">W · L · PD</span>
+        {ms.some(m => m.status === 'live') && <LiveDot />}
+        <span className="ml-auto font-mono text-[11px] text-muted-foreground">{done}/{ms.length}</span>
       </div>
       <div className="divide-y">
         {rows.map((r, i) => {
@@ -80,60 +94,80 @@ function PoolCard({ state, stage }: { state: TournamentState; stage: Stage }) {
           )
         })}
       </div>
-    </div>
+      <div className="px-3 pb-2.5 pt-1.5 text-[11px] text-muted-foreground">
+        Tap to see the {ms.length} matches
+      </div>
+    </button>
   )
 }
 
-export interface BracketColumn { key: string; label: string; stages: Stage[] }
+export interface BracketColumn { key: string; label: string; stages: Stage[]; minor?: Stage[] }
 
-/** Pools collapse into one column; each knockout stage is its own column. */
+/**
+ * Pools collapse into one column. Knockout rounds each get a column, except
+ * placement matches (third, fifth) which sit under the final, de-emphasised.
+ */
 export function bracketColumns(state: TournamentState): BracketColumn[] {
   const stages = sortStages(state.stages)
   const pools = stages.filter(s => s.type === 'pool')
+  const ko = stages.filter(s => s.type === 'knockout')
+  const isPlacement = (s: Stage) => /third|fifth|place/i.test(s.name)
+  const final = ko.find(s => /final/i.test(s.name) && !isPlacement(s))
   const cols: BracketColumn[] = []
   if (pools.length) cols.push({ key: 'pools', label: 'Pool play', stages: pools })
-  stages.filter(s => s.type === 'knockout').forEach(s =>
-    cols.push({ key: s.id, label: s.name, stages: [s] }))
+  ko.filter(s => !isPlacement(s) && s.id !== final?.id)
+    .forEach(s => cols.push({ key: s.id, label: s.name, stages: [s] }))
+  if (final) cols.push({ key: final.id, label: final.name, stages: [final], minor: ko.filter(isPlacement) })
   return cols
 }
 
 const Bracket = forwardRef<HTMLDivElement, {
   state: TournamentState
   columns: BracketColumn[]
+  liveStage: string | null
   onSelect: (id: string) => void
+  onOpenPool: (id: string) => void
   registerCol: (key: string, el: HTMLDivElement | null) => void
   fullscreen?: boolean
-}>(({ state, columns, onSelect, registerCol, fullscreen }, ref) => {
+}>(({ state, columns, liveStage, onSelect, onOpenPool, registerCol, fullscreen }, ref) => {
   const nums = matchNumbers(state)
   return (
     <div ref={ref}
       className={cn('-mx-4 snap-x snap-mandatory overflow-x-auto scroll-smooth px-4',
-        'scrollbar-none [&::-webkit-scrollbar]:hidden',
-        fullscreen && 'h-full items-center')}
+        '[&::-webkit-scrollbar]:hidden', fullscreen && 'h-full')}
       style={{ scrollbarWidth: 'none' }}>
-      <div className={cn('flex gap-4 pb-4', fullscreen && 'h-full items-center px-8')}>
-        {columns.map(col => (
-          <div key={col.key} ref={el => registerCol(col.key, el)}
-               className={cn(COL, fullscreen && 'w-96')}>
-            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">{col.label}</p>
-            <div className="flex flex-col gap-3">
-              {col.stages.map(stage => {
-                const ms = state.matches.filter(m => m.stage_id === stage.id)
-                if (stage.type === 'pool') {
-                  return (
-                    <div key={stage.id} className="space-y-2">
-                      <PoolCard state={state} stage={stage} />
-                      {ms.map(m => <MatchCard key={m.id} state={state} match={m} number={nums[m.id]} onSelect={onSelect} />)}
-                    </div>
-                  )
-                }
-                return ms.map(m => (
-                  <MatchCard key={m.id} state={state} match={m} number={nums[m.id]} onSelect={onSelect} big={fullscreen} />
-                ))
-              })}
+      <div className={cn('flex gap-4 pb-4', fullscreen && 'h-full items-center px-6')}>
+        {columns.map(col => {
+          const live = col.stages.some(s => s.id === liveStage)
+          return (
+            <div key={col.key} ref={el => registerCol(col.key, el)}
+                 className={cn(COL, fullscreen && 'w-[26rem] max-w-none')}>
+              <p className="mb-2 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                {col.label}{live && <LiveDot />}
+              </p>
+              <div className="flex flex-col gap-3">
+                {col.stages.map(stage =>
+                  stage.type === 'pool' ? (
+                    <PoolCard key={stage.id} state={state} stage={stage} onOpenPool={onOpenPool} />
+                  ) : (
+                    state.matches.filter(m => m.stage_id === stage.id).map(m => (
+                      <MatchCard key={m.id} state={state} match={m} number={nums[m.id]}
+                                 onSelect={onSelect} big={fullscreen} />
+                    ))
+                  ))}
+
+                {col.minor && col.minor.length > 0 && (
+                  <div className="mt-1 space-y-2 border-t pt-3">
+                    {col.minor.map(stage => state.matches.filter(m => m.stage_id === stage.id).map(m => (
+                      <MatchCard key={m.id} state={state} match={m} number={nums[m.id]}
+                                 onSelect={onSelect} muted />
+                    )))}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
     </div>
   )
