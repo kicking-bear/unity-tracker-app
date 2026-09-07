@@ -1,4 +1,4 @@
-import { matchNumbers, standings } from '@/lib/tournament'
+import { matchNumbers, orderMatches, standings } from '@/lib/tournament'
 import type { TournamentState } from '@/lib/types'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 import { Badge } from '@/components/ui/badge'
@@ -17,7 +17,7 @@ export default function PoolSheet({
   if (!stage) return <Sheet open={false}><SheetContent /></Sheet>
 
   const rows = standings(state, stage.id)
-  const matches = state.matches.filter(m => m.stage_id === stage.id)
+  const matches = orderMatches(state.matches.filter(m => m.stage_id === stage.id))
 
   return (
     <Sheet open={!!stageId} onOpenChange={o => { if (!o) onClose() }}>

@@ -1,5 +1,5 @@
 import { forwardRef, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { fmtTime, matchNumbers, sideOf, sortStages, standings, tally, winnerOf } from '@/lib/tournament'
+import { fmtTime, matchNumbers, orderMatches, sideOf, sortStages, standings, tally, winnerOf } from '@/lib/tournament'
 import type { Match, Stage, TournamentState } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
@@ -115,7 +115,7 @@ function PoolCard({ state, stage, onOpenPool }: {
   state: TournamentState; stage: Stage; onOpenPool: (id: string) => void
 }) {
   const rows = standings(state, stage.id)
-  const ms = state.matches.filter(m => m.stage_id === stage.id)
+  const ms = orderMatches(state.matches.filter(m => m.stage_id === stage.id))
   const done = ms.filter(m => m.status === 'final').length
   return (
     <button type="button" onClick={() => onOpenPool(stage.id)}
@@ -236,11 +236,11 @@ function Column({ state, col, next, liveStage, onSelect, onOpenPool, registerCol
       <div className="flex flex-col gap-3">
         {col.stages.map(stage => stage.type === 'pool'
           ? <PoolCard key={stage.id} state={state} stage={stage} onOpenPool={onOpenPool} />
-          : state.matches.filter(m => m.stage_id === stage.id).map(m =>
+          : orderMatches(state.matches.filter(m => m.stage_id === stage.id)).map(m =>
               <MatchCard key={m.id} state={state} match={m} number={nums[m.id]} onSelect={onSelect} big={fullscreen} />))}
         {col.minor && col.minor.length > 0 && (
           <div className="mt-1 space-y-2 border-t pt-3">
-            {col.minor.map(stage => state.matches.filter(m => m.stage_id === stage.id).map(m =>
+            {col.minor.map(stage => orderMatches(state.matches.filter(m => m.stage_id === stage.id)).map(m =>
               <MatchCard key={m.id} state={state} match={m} number={nums[m.id]} onSelect={onSelect} muted />))}
           </div>
         )}

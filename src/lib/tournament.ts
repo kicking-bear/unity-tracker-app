@@ -192,3 +192,14 @@ export function liveStageId(s: TournamentState): string | null {
   }
   return currentStage(s)?.id ?? null
 }
+
+/** Matches in the order they are played: by start time, then stored sort. */
+export function orderMatches(ms: Match[]): Match[] {
+  return [...ms].sort((a, b) => {
+    const ta = a.start_time ?? '', tb = b.start_time ?? ''
+    if (ta && tb && ta !== tb) return ta < tb ? -1 : 1
+    if (ta && !tb) return -1
+    if (!ta && tb) return 1
+    return (a.sort ?? 0) - (b.sort ?? 0)
+  })
+}
