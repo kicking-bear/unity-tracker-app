@@ -106,7 +106,14 @@ export function MatchCard({ state, match, number, onSelect, big, muted }: {
         <Side s={B} sets={t.played ? t.b : '–'} points={pb} wonSet={wonB} played={t.played}
               isWin={!!w && w === B.team?.id} big={big} />
       </div>
-      {match.court && <div className="px-3 pb-2 pt-1 text-[11px] text-muted-foreground">{match.court}</div>}
+      {(match.court || match.ref_name) && (
+        <div className="flex items-center gap-2 px-3 pb-2 pt-1 text-[11px] text-muted-foreground">
+          {match.court && <span>{match.court}</span>}
+          {match.ref_name && (
+            <span className="min-w-0 truncate opacity-70">Ref {match.ref_name}</span>
+          )}
+        </div>
+      )}
     </button>
   )
 }
@@ -186,7 +193,7 @@ function Connectors({ colRef, count }: { colRef: React.RefObject<HTMLDivElement 
   return (
     <svg className="pointer-events-none absolute top-0" style={{ left: '100%', width: GAP, height: h }}
          aria-hidden="true">
-      <g stroke="var(--muted-foreground)" strokeOpacity="0.55" strokeWidth="1.5" fill="none" strokeLinecap="round">
+      <g className="stroke-muted-foreground/70" strokeWidth="1.5" fill="none" strokeLinecap="round">
         {ys.map((y, i) => <path key={i} d={`M0 ${y} H${mid}`} />)}
         <path d={`M${mid} ${ys[0]} V${ys[ys.length - 1]}`} />
         <path d={`M${mid} ${yMid} H${GAP}`} />

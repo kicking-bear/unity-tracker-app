@@ -4,6 +4,7 @@ import { Maximize2, Minimize2 } from 'lucide-react'
 import { useTournament } from '@/lib/useTournament'
 import { currentStage, liveStageId, matchNumbers } from '@/lib/tournament'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import Bracket, { bracketColumns } from '@/components/Bracket'
 import MatchSheet from '@/components/MatchSheet'
 import PoolSheet from '@/components/PoolSheet'
@@ -80,14 +81,18 @@ export default function TournamentPage() {
 
   return (
     <div ref={wrap} className={fs ? 'flex h-screen flex-col bg-background p-6' : 'space-y-3'}>
-      <div className="flex items-baseline gap-2">
+      <div className="flex min-w-0 items-baseline gap-2">
         {!fs && (
           <>
-            <Link to="/" className="text-sm text-muted-foreground hover:text-foreground">{state.event?.name}</Link>
-            <span className="text-sm text-muted-foreground">/</span>
+            <Link to="/"
+              className="hidden max-w-[40%] shrink truncate text-sm text-muted-foreground hover:text-foreground sm:block">
+              {state.event?.name}
+            </Link>
+            <span className="hidden shrink-0 text-sm text-muted-foreground sm:block">/</span>
           </>
         )}
-        <h1 className={fs ? 'text-3xl font-semibold tracking-tight' : 'text-2xl font-semibold tracking-tight'}>
+        <h1 className={cn('min-w-0 truncate font-semibold tracking-tight',
+          fs ? 'text-3xl' : 'text-xl sm:text-2xl')}>
           {fs ? `${state.event?.name} — ${state.tournament.name}` : state.tournament.name}
         </h1>
         <Button variant="ghost" size="icon" className="ml-auto hidden md:inline-flex"

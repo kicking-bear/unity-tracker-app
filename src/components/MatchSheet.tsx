@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { api } from '@/lib/api'
-import { fmtTime, parseLines, serialiseLines, sideOf, stageById, tally, winnerOf } from '@/lib/tournament'
+import { fmtTime, sideOf, stageById, tally, winnerOf } from '@/lib/tournament'
 import type { Match, TournamentState } from '@/lib/types'
 import { useRoleContext } from '@/lib/roleContext'
 import { cn } from '@/lib/utils'
@@ -43,8 +43,15 @@ export default function MatchSheet({
   const t = tally(match)
   const w = winnerOf(state, match)
   const stage = stageById(state, match.stage_id)
-  const lineJudges = parseLines(match.line_names)
   const canScore = isStaff && !!A.team && !!B.team
+
+  // eligible referees: any team not playing in this match, plus the current value
+  const refOptions = (() => {
+    const playing = new Set([A.team?.id, B.team?.id].filter(Boolean) as string[])
+    const names = state.teams.filter(t => !playing.has(t.id)).map(t => t.name)
+    if (match.ref_name && !names.includes(match.ref_name)) names.unshift(match.ref_name)
+    return names
+  })()
 
   const val = (i: number, side: 'a' | 'b') =>
     scores[`${side}${i}`] ?? String(match.periods[i]?.[side === 'a' ? 'score_a' : 'score_b'] ?? '')
@@ -133,11 +140,9 @@ export default function MatchSheet({
           </div>
         )}
 
-        {(match.ref_name || lineJudges.length > 0) && (
+        {match.ref_name && (
           <p className="mt-3 text-sm text-muted-foreground">
-            {match.ref_name && <>Ref <span className="text-foreground">{match.ref_name}</span></>}
-            {match.ref_name && lineJudges.length > 0 && <span className="mx-2">·</span>}
-            {lineJudges.length > 0 && <>Lines <span className="text-foreground">{lineJudges.join(', ')}</span></>}
+            Refereed by <span className="text-foreground">{match.ref_name}</span>
           </p>
         )}
 
@@ -216,25 +221,18 @@ export default function MatchSheet({
             </div>
 
             <div className="mt-3 space-y-1.5">
-              <Label htmlFor="mt-ref">Referee</Label>
-              <Input id="mt-ref" defaultValue={match.ref_name ?? ''} placeholder="Name"
-                onBlur={e => e.target.value !== (match.ref_name ?? '') && patch({ ref_name: e.target.value || null })} />
-            </div>
-
-            <div className="mt-3 space-y-1.5">
-              <Label>Line judges</Label>
-              {[...lineJudges, ''].map((v, i) => (
-                <Input key={i} defaultValue={v} placeholder={i === 0 ? 'Name' : 'Add another'}
-                  onBlur={e => {
-                    const next = [...lineJudges]
-                    if (i < next.length) next[i] = e.target.value
-                    else if (e.target.value.trim()) next.push(e.target.value)
-                    else return
-                    if (serialiseLines(next) !== serialiseLines(lineJudges))
-                      patch({ line_names: serialiseLines(next) })
-                  }} />
-              ))}
-              <p className="text-xs text-muted-foreground">Leave a name blank to remove it.</p>
+              <Label>Referee</Label>
+              <Select value={match.ref_name ?? 'none'}
+                      onValueChange={v => patch({ ref_name: v === 'none' ? null : v })}>
+                <SelectTrigger><SelectValue placeholder="Not assigned" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Not assigned</SelectItem>
+                  {refOptions.map(n => <SelectItem key={n} value={n}>{n}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                The refereeing team also supplies the line judges.
+              </p>
             </div>
 
             <div className="mt-5 rounded-lg border border-destructive/40 p-3">

@@ -177,12 +177,6 @@ export function fmtTime(t?: string | null): string {
   return `${((h + 11) % 12) + 1}:${min} ${ap}`
 }
 
-export const parseLines = (v?: string | null): string[] => {
-  if (!v) return []
-  try { const a = JSON.parse(v); return Array.isArray(a) ? a.filter(Boolean) : [] }
-  catch { return v.split(',').map(x => x.trim()).filter(Boolean) }
-}
-export const serialiseLines = (a: string[]) => JSON.stringify(a.map(x => x.trim()).filter(Boolean))
 
 /** Stage the tournament is currently on, for the live indicator. */
 export function liveStageId(s: TournamentState): string | null {
