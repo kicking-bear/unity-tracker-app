@@ -57,6 +57,10 @@ export const api = {
   rotateCode: (event_id: string, code?: string) =>
     req<{ ok: boolean; code: string }>('/api/staffcode',
       { method: 'POST', body: JSON.stringify({ event_id, code }) }),
+  addBlock: (b: Record<string, unknown>) =>
+    req<{ ok: boolean; id: string }>('/api/block', { method: 'POST', body: JSON.stringify(b) }),
+  deleteBlock: (id: string) =>
+    req<{ ok: boolean }>('/api/block/' + id, { method: 'DELETE' }),
   saveTeams: (teams: { id: string; name: string; color: string | null; stage_id: string | null; sort: number }[]) =>
     req<{ ok: boolean }>('/api/teams', { method: 'PATCH', body: JSON.stringify({ teams }) }),
 

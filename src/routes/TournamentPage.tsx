@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { CalendarDays, Maximize2, Minimize2, Rows3 } from 'lucide-react'
+import { CalendarDays, Maximize2, Minimize2, Plus, Rows3 } from 'lucide-react'
 import { useTournament } from '@/lib/useTournament'
 import { api } from '@/lib/api'
 import { currentStage, liveStageId, matchNumbers } from '@/lib/tournament'
@@ -10,8 +10,10 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
+import { useRoleContext } from '@/lib/roleContext'
 import Bracket, { bracketColumns, LiveDot } from '@/components/Bracket'
 import ScheduleView, { courtColumns } from '@/components/ScheduleView'
+import BlockDialog from '@/components/BlockDialog'
 import MatchSheet from '@/components/MatchSheet'
 import PoolSheet from '@/components/PoolSheet'
 
@@ -19,6 +21,7 @@ type View = 'bracket' | 'schedule'
 
 export default function TournamentPage() {
   const { slug } = useParams()
+  const { isAdmin } = useRoleContext()
   const navigate = useNavigate()
   const { state, error, reload } = useTournament(slug)
   const [view, setView] = useState<View>('bracket')
@@ -27,6 +30,7 @@ export default function TournamentPage() {
   const [active, setActive] = useState<string | null>(null)
   const [fs, setFs] = useState(false)
   const [siblingStates, setSiblingStates] = useState<TournamentState[]>([])
+  const [blockOpen, setBlockOpen] = useState(false)
 
   const cols = useRef<Record<string, HTMLDivElement | null>>({})
   const scroller = useRef<HTMLDivElement>(null)
@@ -35,9 +39,10 @@ export default function TournamentPage() {
 
   const columns = useMemo(
     () => (state && view === 'bracket' ? bracketColumns(state) : []), [state, view])
+  const blocks = useMemo(() => state?.blocks ?? [], [state])
   const schedCols = useMemo(
-    () => (view === 'schedule' && siblingStates.length ? courtColumns(siblingStates) : []),
-    [view, siblingStates])
+    () => (view === 'schedule' && siblingStates.length ? courtColumns(siblingStates, blocks) : []),
+    [view, siblingStates, blocks])
   const nums = useMemo(() => (state ? matchNumbers(state) : {}), [state])
 
   // schedule view spans the whole event, so load the sibling tournaments too
@@ -166,6 +171,17 @@ export default function TournamentPage() {
         </div>
       </div>
 
+      {view === 'schedule' && isAdmin && state.event && (
+        <div className="flex justify-end">
+          <Button variant="outline" size="sm" onClick={() => setBlockOpen(true)}>
+            <Plus className="mr-1.5 size-3.5" />Add block
+          </Button>
+          <BlockDialog open={blockOpen} onClose={() => setBlockOpen(false)}
+                       eventId={state.event.id} courts={schedCols.map(c => c.key)}
+                       blocks={blocks} onChanged={reload} />
+        </div>
+      )}
+
       {/* stage / court chips */}
       <div className="-mx-4 flex gap-1 overflow-x-auto px-4 pb-1" style={{ scrollbarWidth: 'none' }}>
         {tabs.map(t => (
@@ -182,7 +198,7 @@ export default function TournamentPage() {
                    onSelect={id => setSelected({ state, id })} onOpenPool={setPool}
                    registerCol={registerCol} fullscreen={fs} />
         ) : schedCols.length ? (
-          <ScheduleView ref={scroller} states={siblingStates} columns={schedCols}
+          <ScheduleView ref={scroller} states={siblingStates} blocks={blocks} columns={schedCols}
                         onSelect={(st, id) => setSelected({ state: st, id })}
                         registerCol={registerCol} />
         ) : (

@@ -45,6 +45,10 @@ export interface EventRow {
   id: string; name: string; event_date?: string | null; status: string
   tournaments: TournamentSummary[]
 }
+export interface Block {
+  id: string; event_id: string; title: string; details?: string | null
+  court?: string | null; start_time?: string | null; end_time?: string | null; sort: number
+}
 export interface TournamentState {
   event: { id: string; name: string; event_date?: string | null; status: string } | null
   siblings: Pick<Tournament, 'id' | 'name' | 'slug' | 'sport' | 'division' | 'status'>[]
@@ -52,6 +56,7 @@ export interface TournamentState {
   stages: Stage[]
   teams: Team[]
   matches: Match[]
+  blocks?: Block[]
   ts: number
 }
 export interface StandingRow {
