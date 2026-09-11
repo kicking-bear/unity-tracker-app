@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Shuffle } from 'lucide-react'
+import { ArrowDown, ArrowUp, Shuffle } from 'lucide-react'
 import { toast } from 'sonner'
 import { api } from '@/lib/api'
-import ColorPicker from '@/components/ColorPicker'
 import type { Stage, Team } from '@/lib/types'
+import ColorPicker from '@/components/ColorPicker'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -11,65 +11,73 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 
+interface Draft { id: string; name: string; color: string | null; stage_id: string | null }
+
 export default function TeamEditor({ slug, onChanged }: { slug: string; onChanged: () => Promise<void> }) {
-  const [teams, setTeams] = useState<Team[] | null>(null)
   const [pools, setPools] = useState<Stage[]>([])
-  const [names, setNames] = useState<Record<string, string>>({})
+  const [draft, setDraft] = useState<Draft[] | null>(null)
+  const [saved, setSaved] = useState<Draft[] | null>(null)
+  const [busy, setBusy] = useState(false)
 
   const load = useCallback(async () => {
     const d = await api.tournament(slug)
-    setTeams(d.teams)
+    const rows: Draft[] = d.teams.map((t: Team) => ({
+      id: t.id, name: t.name, color: t.color ?? null, stage_id: t.stage_id ?? null,
+    }))
     setPools(d.stages.filter(s => s.type === 'pool').sort((a, b) => a.sort - b.sort))
-    setNames(Object.fromEntries(d.teams.map(t => [t.id, t.name])))
+    setDraft(rows); setSaved(rows)
   }, [slug])
 
   useEffect(() => { load().catch(e => toast.error((e as Error).message)) }, [load])
 
-  async function save(id: string, fields: Record<string, unknown>, label: string) {
-    try {
-      await api.patchTeam(id, fields)
-      await load(); await onChanged()
-      toast.success(label)
-      checkPools()
-    } catch (e) { toast.error((e as Error).message) }
+  if (!draft || !saved) return <p className="text-sm text-muted-foreground">Loading teams…</p>
+
+  const dirty = JSON.stringify(draft) !== JSON.stringify(saved)
+  const set = (id: string, f: Partial<Draft>) =>
+    setDraft(d => d!.map(t => (t.id === id ? { ...t, ...f } : t)))
+
+  function move(i: number, dir: -1 | 1) {
+    const j = i + dir
+    if (j < 0 || j >= draft!.length) return
+    const next = [...draft!]
+    ;[next[i], next[j]] = [next[j], next[i]]
+    setDraft(next)
   }
 
-  /** Warn when pools end up lopsided — the organiser has to fix it, not us. */
-  function checkPools() {
-    if (!teams || pools.length < 2) return
-    const counts = pools.map(p => ({
-      name: p.name, n: teams.filter(t => t.stage_id === p.id).length }))
-    const unassigned = teams.filter(t => !t.stage_id).length
-    if (unassigned) toast.warning(`${unassigned} team${unassigned > 1 ? 's' : ''} not in a pool`)
-    const min = Math.min(...counts.map(c => c.n)), max = Math.max(...counts.map(c => c.n))
-    if (max - min > 1)
-      toast.warning('Pools are uneven: ' + counts.map(c => `${c.name} ${c.n}`).join(' · '))
-  }
-
-  /** Even split across pools, shuffled. */
-  async function randomise() {
-    if (!teams || pools.length < 2) return
-    const shuffled = [...teams].sort(() => Math.random() - 0.5)
+  function randomise() {
+    if (pools.length < 2) return
+    const shuffled = [...draft!].sort(() => Math.random() - 0.5)
     const per = Math.ceil(shuffled.length / pools.length)
-    try {
-      for (let i = 0; i < shuffled.length; i++) {
-        const pool = pools[Math.floor(i / per)] ?? pools[pools.length - 1]
-        if (shuffled[i].stage_id !== pool.id)
-          await api.patchTeam(shuffled[i].id, { stage_id: pool.id })
-      }
-      await load(); await onChanged(); toast.success('Pools shuffled')
-    } catch (e) { toast.error((e as Error).message) }
+    setDraft(shuffled.map((t, i) => ({
+      ...t, stage_id: (pools[Math.floor(i / per)] ?? pools[pools.length - 1]).id,
+    })))
+    toast.message('Pools shuffled — press Save to apply')
   }
 
-  if (!teams) return <p className="text-sm text-muted-foreground">Loading teams…</p>
+  async function save() {
+    setBusy(true)
+    try {
+      await api.saveTeams(draft!.map((t, i) => ({ ...t, sort: i })))
+      await load(); await onChanged()
+      toast.success('Teams saved')
+      if (pools.length > 1) {
+        const counts = pools.map(p => draft!.filter(t => t.stage_id === p.id).length)
+        const un = draft!.filter(t => !t.stage_id).length
+        if (un) toast.warning(`${un} team${un > 1 ? 's' : ''} not in a pool`)
+        else if (Math.max(...counts) - Math.min(...counts) > 1)
+          toast.warning('Pools are uneven: ' + pools.map((p, i) => `${p.name} ${counts[i]}`).join(' · '))
+      }
+    } catch (e) { toast.error((e as Error).message) }
+    setBusy(false)
+  }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-3">
       {pools.length > 1 && (
         <div className="flex items-center justify-between rounded-lg border p-3">
-          <div>
-            <p className="text-sm font-medium">Pool assignment</p>
-            <p className="text-xs text-muted-foreground">Set each team below, or shuffle them evenly.</p>
+          <div className="min-w-0">
+            <p className="text-sm font-medium">Pools &amp; order</p>
+            <p className="text-xs text-muted-foreground">Changes apply when you save.</p>
           </div>
           <Button variant="outline" size="sm" onClick={randomise}>
             <Shuffle className="mr-1.5 size-3.5" />Randomise
@@ -77,38 +85,52 @@ export default function TeamEditor({ slug, onChanged }: { slug: string; onChange
         </div>
       )}
 
-      {teams.map(t => (
+      {draft.map((t, i) => (
         <div key={t.id} className="space-y-2 rounded-lg border p-3">
-          <div className="flex gap-2">
-            <Input value={names[t.id] ?? ''}
-                   onChange={e => setNames(s => ({ ...s, [t.id]: e.target.value }))} />
-            <Button variant="outline" size="sm" className="h-9 shrink-0"
-                    disabled={(names[t.id] ?? '').trim() === t.name}
-                    onClick={() => save(t.id, { name: (names[t.id] ?? '').trim() }, 'Team name saved')}>
-              Save
-            </Button>
+          <div className="flex items-center gap-2">
+            <div className="flex shrink-0 flex-col">
+              <Button variant="ghost" size="icon" className="size-6" aria-label="Move up"
+                      disabled={i === 0} onClick={() => move(i, -1)}>
+                <ArrowUp className="size-3.5" />
+              </Button>
+              <Button variant="ghost" size="icon" className="size-6" aria-label="Move down"
+                      disabled={i === draft.length - 1} onClick={() => move(i, 1)}>
+                <ArrowDown className="size-3.5" />
+              </Button>
+            </div>
+            <Input value={t.name} onChange={e => set(t.id, { name: e.target.value })} />
           </div>
 
-          {pools.length > 1 && (
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Pool</Label>
-              <Select value={t.stage_id ?? 'none'}
-                      onValueChange={v => save(t.id, { stage_id: v === 'none' ? null : v }, 'Pool updated')}>
-                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Unassigned</SelectItem>
-                  {pools.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+          <div className="flex flex-wrap items-center gap-3 pl-8">
+            <div className="flex items-center gap-2">
+              <Label className="text-xs text-muted-foreground">Colour</Label>
+              <ColorPicker value={t.color} onChange={hex => set(t.id, { color: hex })} />
             </div>
-          )}
-
-          <div className="flex items-center gap-2 pt-1">
-            <Label className="text-xs text-muted-foreground">Colour</Label>
-            <ColorPicker value={t.color} onChange={hex => save(t.id, { color: hex }, 'Colour updated')} />
+            {pools.length > 1 && (
+              <div className="flex min-w-0 flex-1 items-center gap-2">
+                <Label className="shrink-0 text-xs text-muted-foreground">Pool</Label>
+                <Select value={t.stage_id ?? 'none'}
+                        onValueChange={v => set(t.id, { stage_id: v === 'none' ? null : v })}>
+                  <SelectTrigger className="h-9 w-full"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Unassigned</SelectItem>
+                    {pools.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
         </div>
       ))}
+
+      <div className="sticky bottom-0 flex gap-2 bg-background pt-2">
+        <Button className="flex-1" onClick={save} disabled={!dirty || busy}>
+          {dirty ? 'Save teams' : 'Saved'}
+        </Button>
+        {dirty && (
+          <Button variant="outline" onClick={() => setDraft(saved)}>Discard</Button>
+        )}
+      </div>
     </div>
   )
 }

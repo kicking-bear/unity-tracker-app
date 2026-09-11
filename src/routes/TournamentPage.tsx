@@ -1,33 +1,59 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
-import { Maximize2, Minimize2 } from 'lucide-react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { CalendarDays, Maximize2, Minimize2, Rows3 } from 'lucide-react'
 import { useTournament } from '@/lib/useTournament'
+import { api } from '@/lib/api'
 import { currentStage, liveStageId, matchNumbers } from '@/lib/tournament'
+import type { TournamentState } from '@/lib/types'
 import { Button } from '@/components/ui/button'
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
 import { cn } from '@/lib/utils'
-import Bracket, { bracketColumns } from '@/components/Bracket'
+import Bracket, { bracketColumns, LiveDot } from '@/components/Bracket'
+import ScheduleView, { courtColumns } from '@/components/ScheduleView'
 import MatchSheet from '@/components/MatchSheet'
 import PoolSheet from '@/components/PoolSheet'
-import { LiveDot } from '@/components/Bracket'
+
+type View = 'bracket' | 'schedule'
 
 export default function TournamentPage() {
   const { slug } = useParams()
+  const navigate = useNavigate()
   const { state, error, reload } = useTournament(slug)
-  const [selected, setSelected] = useState<string | null>(null)
+  const [view, setView] = useState<View>('bracket')
+  const [selected, setSelected] = useState<{ state: TournamentState; id: string } | null>(null)
   const [pool, setPool] = useState<string | null>(null)
   const [active, setActive] = useState<string | null>(null)
   const [fs, setFs] = useState(false)
+  const [siblingStates, setSiblingStates] = useState<TournamentState[]>([])
+
   const cols = useRef<Record<string, HTMLDivElement | null>>({})
   const scroller = useRef<HTMLDivElement>(null)
   const wrap = useRef<HTMLDivElement>(null)
   const positioned = useRef(false)
 
-  const columns = useMemo(() => (state ? bracketColumns(state) : []), [state])
+  const columns = useMemo(
+    () => (state && view === 'bracket' ? bracketColumns(state) : []), [state, view])
+  const schedCols = useMemo(
+    () => (view === 'schedule' && siblingStates.length ? courtColumns(siblingStates) : []),
+    [view, siblingStates])
   const nums = useMemo(() => (state ? matchNumbers(state) : {}), [state])
 
-  const registerCol = useCallback((key: string, el: HTMLDivElement | null) => { cols.current[key] = el }, [])
+  // schedule view spans the whole event, so load the sibling tournaments too
+  useEffect(() => {
+    if (view !== 'schedule' || !state?.siblings?.length) return
+    let cancelled = false
+    Promise.all(state.siblings.map(s => api.tournament(s.slug)))
+      .then(list => { if (!cancelled) setSiblingStates(list) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [view, state?.siblings])
 
-  /** Distance the scroller must travel to bring a column to its left edge. */
+  const registerCol = useCallback((key: string, el: HTMLDivElement | null) => {
+    cols.current[key] = el
+  }, [])
+
   const offsetOf = (el: HTMLDivElement, sc: HTMLDivElement) =>
     sc.scrollLeft + el.getBoundingClientRect().left - sc.getBoundingClientRect().left - 16
 
@@ -38,16 +64,19 @@ export default function TournamentPage() {
     setActive(key)
   }, [])
 
-  // default position: the stage currently in progress — once, on first load
-  useEffect(() => {
-    if (!state || positioned.current || !columns.length) return
-    const cur = currentStage(state)
-    const key = cur ? (cur.type === 'pool' ? 'pools' : cur.id) : columns[0].key
-    positioned.current = true
-    requestAnimationFrame(() => goTo(key))
-  }, [state, columns, goTo])
+  useEffect(() => { positioned.current = false; cols.current = {} }, [view, slug])
 
-  // keep the active tab in sync while the user scrolls
+  useEffect(() => {
+    if (!state || positioned.current) return
+    const list = view === 'bracket' ? columns : schedCols
+    if (!list.length) return
+    positioned.current = true
+    const key = view === 'bracket'
+      ? (() => { const cur = currentStage(state); return cur ? (cur.type === 'pool' ? 'pools' : cur.id) : list[0].key })()
+      : list[0].key
+    requestAnimationFrame(() => goTo(key))
+  }, [state, columns, schedCols, view, goTo])
+
   useEffect(() => {
     const sc = scroller.current
     if (!sc) return
@@ -63,9 +92,8 @@ export default function TournamentPage() {
     }
     sc.addEventListener('scroll', onScroll, { passive: true })
     return () => sc.removeEventListener('scroll', onScroll)
-  }, [columns.length])
+  }, [columns.length, schedCols.length])
 
-  // fullscreen for TVs
   useEffect(() => {
     const onChange = () => setFs(!!document.fullscreenElement)
     document.addEventListener('fullscreenchange', onChange)
@@ -79,51 +107,104 @@ export default function TournamentPage() {
   if (error) return <p className="text-sm text-destructive">{error}</p>
   if (!state?.tournament) return <p className="text-sm text-muted-foreground">Loading…</p>
 
+  const live = liveStageId(state)
+  const tabs = view === 'bracket'
+    ? columns.map(c => ({ key: c.key, label: c.label, live: c.stages.some(s => s.id === live) }))
+    : schedCols.map(c => ({ key: c.key, label: c.label, live: false }))
+
   return (
     <div ref={wrap} className={fs ? 'flex h-screen flex-col bg-background p-6' : 'space-y-3'}>
-      <div className="flex min-w-0 items-baseline gap-2">
-        {!fs && (
-          <>
-            <Link to="/"
-              className="hidden max-w-[40%] shrink truncate text-sm text-muted-foreground hover:text-foreground sm:block">
-              {state.event?.name}
-            </Link>
-            <span className="hidden shrink-0 text-sm text-muted-foreground sm:block">/</span>
-          </>
+      {/* breadcrumb */}
+      {!fs && (
+        <div className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+          <Link to="/" className="shrink-0 transition-colors hover:text-foreground">Tournaments</Link>
+          <span className="shrink-0">/</span>
+          <Link to="/" className="min-w-0 truncate transition-colors hover:text-foreground">
+            {state.event?.name}
+          </Link>
+        </div>
+      )}
+
+      {/* division switcher + view toggle */}
+      <div className="flex min-w-0 items-center gap-2">
+        {fs ? (
+          <h1 className="truncate text-3xl font-semibold tracking-tight">
+            {state.event?.name} — {state.tournament.name}
+          </h1>
+        ) : (
+          <Select value={slug} onValueChange={v => navigate(`/t/${v}`)}>
+            <SelectTrigger className="h-auto w-auto min-w-0 max-w-[62vw] gap-2 border-0 bg-transparent px-0
+                                      text-xl font-semibold tracking-tight shadow-none focus-visible:ring-0
+                                      sm:max-w-none sm:text-2xl">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent align="start">
+              {(state.siblings ?? []).map(s => (
+                <SelectItem key={s.slug} value={s.slug}>{s.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         )}
-        <h1 className={cn('min-w-0 truncate font-semibold tracking-tight',
-          fs ? 'text-3xl' : 'text-xl sm:text-2xl')}>
-          {fs ? `${state.event?.name} — ${state.tournament.name}` : state.tournament.name}
-        </h1>
-        <Button variant="ghost" size="icon" className="ml-auto hidden md:inline-flex"
-                onClick={toggleFs} aria-label={fs ? 'Exit full screen' : 'Full screen'}>
-          {fs ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
-        </Button>
+
+        <div className="ml-auto flex shrink-0 items-center gap-1">
+          {!fs && (
+            <div className="flex overflow-hidden rounded-full border">
+              <Button size="sm" variant={view === 'bracket' ? 'default' : 'ghost'}
+                      className="h-8 rounded-none px-3" onClick={() => setView('bracket')}>
+                <Rows3 className="mr-1.5 size-3.5" />Bracket
+              </Button>
+              <Button size="sm" variant={view === 'schedule' ? 'default' : 'ghost'}
+                      className="h-8 rounded-none px-3" onClick={() => setView('schedule')}>
+                <CalendarDays className="mr-1.5 size-3.5" />Schedule
+              </Button>
+            </div>
+          )}
+          <Button variant="ghost" size="icon" className="hidden md:inline-flex"
+                  onClick={toggleFs} aria-label={fs ? 'Exit full screen' : 'Full screen'}>
+            {fs ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
+          </Button>
+        </div>
       </div>
 
-      {/* stage tabs drive the horizontal scroll */}
+      {/* stage / court chips */}
       <div className="-mx-4 flex gap-1 overflow-x-auto px-4 pb-1" style={{ scrollbarWidth: 'none' }}>
-        {columns.map(c => {
-          const live = c.stages.some(st => st.id === liveStageId(state))
-          return (
-            <Button key={c.key} size="sm" variant={active === c.key ? 'default' : 'ghost'}
-                    className="shrink-0 gap-1.5 rounded-full" onClick={() => goTo(c.key)}>
-              {c.label}{live && <LiveDot />}
-            </Button>
-          )
-        })}
+        {tabs.map(t => (
+          <Button key={t.key} size="sm" variant={active === t.key ? 'default' : 'ghost'}
+                  className="shrink-0 gap-1.5 rounded-full" onClick={() => goTo(t.key)}>
+            {t.label}{t.live && <LiveDot />}
+          </Button>
+        ))}
       </div>
 
       <div className={fs ? 'min-h-0 flex-1' : undefined}>
-        <Bracket ref={scroller} state={state} columns={columns} liveStage={liveStageId(state)}
-                 onSelect={setSelected} onOpenPool={setPool} registerCol={registerCol} fullscreen={fs} />
+        {view === 'bracket' ? (
+          <Bracket ref={scroller} state={state} columns={columns} liveStage={live}
+                   onSelect={id => setSelected({ state, id })} onOpenPool={setPool}
+                   registerCol={registerCol} fullscreen={fs} />
+        ) : schedCols.length ? (
+          <ScheduleView ref={scroller} states={siblingStates} columns={schedCols}
+                        onSelect={(st, id) => setSelected({ state: st, id })}
+                        registerCol={registerCol} />
+        ) : (
+          <p className="text-sm text-muted-foreground">Loading schedule…</p>
+        )}
       </div>
 
-      <PoolSheet state={state} stageId={pool} onClose={() => setPool(null)} onSelectMatch={setSelected} />
+      <PoolSheet state={state} stageId={pool} onClose={() => setPool(null)}
+                 onSelectMatch={id => setSelected({ state, id })} />
 
-      <MatchSheet state={state} matchId={selected}
-                  number={selected ? nums[selected] : undefined}
-                  onClose={() => setSelected(null)} onChanged={reload} />
+      <MatchSheet
+        state={selected?.state ?? state}
+        matchId={selected?.id ?? null}
+        number={selected ? matchNumbers(selected.state)[selected.id] : undefined}
+        onClose={() => setSelected(null)}
+        onChanged={async () => {
+          await reload()
+          if (view === 'schedule' && state.siblings?.length) {
+            const list = await Promise.all(state.siblings.map(s => api.tournament(s.slug)))
+            setSiblingStates(list)
+          }
+        }} />
     </div>
   )
 }

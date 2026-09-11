@@ -178,13 +178,24 @@ export function fmtTime(t?: string | null): string {
 }
 
 
-/** Stage the tournament is currently on, for the live indicator. */
+/** True once every match has a final result. */
+export function tournamentComplete(s: TournamentState): boolean {
+  return s.matches.length > 0 && s.matches.every(m => m.status === 'final')
+}
+
+/** Stage the tournament is currently on — null once everything is played. */
 export function liveStageId(s: TournamentState): string | null {
-  if (s.matches.some(m => m.status === 'live')) {
-    const m = s.matches.find(x => x.status === 'live')!
-    return m.stage_id
-  }
+  if (tournamentComplete(s)) return null
+  const live = s.matches.find(m => m.status === 'live')
+  if (live) return live.stage_id
   return currentStage(s)?.id ?? null
+}
+
+/** Matches grouped by court, for the schedule view. */
+export function courts(s: TournamentState): string[] {
+  const set = new Set<string>()
+  s.matches.forEach(m => { if (m.court) set.add(m.court) })
+  return [...set].sort()
 }
 
 /** Matches in the order they are played: by start time, then stored sort. */

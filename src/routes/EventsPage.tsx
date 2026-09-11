@@ -19,15 +19,14 @@ export default function EventsPage() {
   const [editing, setEditing] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
 
-  const loadEvents = useCallback(() =>
-    api.events().then(d => setEvents(d.events)).catch(e => setErr((e as Error).message)), [])
+  const loadEvents = useCallback(
+    () => api.events().then(d => setEvents(d.events)).catch(e => setErr((e as Error).message)), [])
   useEffect(() => { void loadEvents() }, [loadEvents])
 
   const loadCodes = useCallback(async () => {
     const d = await api.codes()
-    setCodes(Object.fromEntries(d.tournaments.map(t => [t.id, t.staff_code ?? ''])))
+    setCodes(Object.fromEntries(d.events.map(e => [e.id, e.staff_code ?? ''])))
   }, [])
-
   useEffect(() => { if (isAdmin && showCodes) void loadCodes() }, [isAdmin, showCodes, loadCodes])
   useEffect(() => { if (!isAdmin) setShowCodes(false) }, [isAdmin])
 
@@ -36,59 +35,46 @@ export default function EventsPage() {
   if (!events.length) return <p className="text-sm text-muted-foreground">No events yet.</p>
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-6">
       {events.map(ev => (
-        <Card key={ev.id} className="p-5">
-          <div className="mb-4 flex flex-wrap items-baseline gap-3 border-b pb-3">
-            <h2 className="text-2xl font-semibold tracking-tight">{ev.name}</h2>
-            {ev.event_date && (
-              <span className="font-mono text-xs text-muted-foreground">{ev.event_date}</span>
-            )}
+        <Card key={ev.id} className="p-4 sm:p-5">
+          <div className="mb-4 flex items-start gap-3 border-b pb-3">
+            <div className="min-w-0">
+              <h2 className="truncate text-xl font-semibold tracking-tight sm:text-2xl">{ev.name}</h2>
+              {ev.event_date && (
+                <span className="font-mono text-xs text-muted-foreground">{ev.event_date}</span>
+              )}
+            </div>
             {isAdmin && (
-              <div className="ml-auto">
-                <Button variant="outline" size="sm" onClick={() => setEditing(ev.id)}>
-                  <Pencil className="mr-1.5 size-3.5" />Edit
-                </Button>
-                <EventAdminDialog event={ev} open={editing === ev.id}
-                  onOpenChange={o => setEditing(o ? ev.id : null)}
-                  onChanged={async () => { await loadEvents() }} />
-              </div>
+              <Button variant="outline" size="sm" className="ml-auto shrink-0"
+                      onClick={() => setEditing(ev.id)}>
+                <Pencil className="mr-1.5 size-3.5" />Edit
+              </Button>
             )}
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
             {ev.tournaments.map(t => (
-              <Card key={t.id} className="flex flex-col bg-muted/30">
-                <Link to={`/t/${t.slug}`} className="flex-1">
+              <Link key={t.id} to={`/t/${t.slug}`}>
+                <Card className="bg-muted/30 transition hover:border-foreground/30">
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-xl font-semibold tracking-tight">{t.name}</CardTitle>
+                    <CardTitle className="text-lg font-semibold tracking-tight sm:text-xl">{t.name}</CardTitle>
                   </CardHeader>
                   <CardContent className="flex items-center justify-between gap-2">
                     <span className="text-xs capitalize text-muted-foreground">
-                      {t.sport}{t.division ? ` · ${t.division}` : ''}
+                      {t.sport}
                       {t.match_count ? <> · {t.final_count ?? 0}/{t.match_count} played</> : null}
                     </span>
                     {t.live_count
                       ? <LiveChip />
-                      : (t.final_count ?? 0) > 0 && (t.final_count ?? 0) < (t.match_count ?? 0)
-                        ? <LiveChip label="In play" />
-                        : (t.match_count ?? 0) > 0 && t.final_count === t.match_count
-                          ? <Badge variant="secondary">Complete</Badge>
+                      : (t.match_count ?? 0) > 0 && t.final_count === t.match_count
+                        ? <Badge variant="secondary">Complete</Badge>
+                        : (t.final_count ?? 0) > 0
+                          ? <LiveChip label="In play" />
                           : <Badge variant="secondary" className="capitalize">{t.status}</Badge>}
                   </CardContent>
-                </Link>
-
-                {isAdmin && showCodes && (
-                  <div className="space-y-2 border-t px-6 pb-4 pt-3">
-                    <p className="text-xs font-medium text-muted-foreground">Staff access code</p>
-                    <StaffCodeRow
-                      tournamentId={t.id}
-                      code={codes[t.id] ?? ''}
-                      onChange={c => setCodes(s => ({ ...s, [t.id]: c }))}
-                    />
-                  </div>
-                )}
-              </Card>
+                </Card>
+              </Link>
             ))}
             {!ev.tournaments.length && (
               <p className="text-sm text-muted-foreground">No tournaments yet.</p>
@@ -96,13 +82,25 @@ export default function EventsPage() {
           </div>
 
           {isAdmin && (
-            <div className="mt-4 flex justify-end">
+            <div className="mt-4 flex flex-col items-end gap-3">
               <Button variant="ghost" size="sm" className="text-muted-foreground"
                       onClick={() => setShowCodes(v => !v)}>
                 <KeyRound className="mr-1.5 size-3.5" />
-                {showCodes ? 'Hide staff access codes' : 'Staff access codes'}
+                {showCodes ? 'Hide staff access code' : 'Staff access code'}
               </Button>
+              {showCodes && (
+                <div className="w-full sm:max-w-sm">
+                  <StaffCodeRow eventId={ev.id} code={codes[ev.id] ?? ''}
+                                onChange={c => setCodes(s => ({ ...s, [ev.id]: c }))} />
+                </div>
+              )}
             </div>
+          )}
+
+          {isAdmin && (
+            <EventAdminDialog event={ev} open={editing === ev.id}
+              onOpenChange={o => setEditing(o ? ev.id : null)}
+              onChanged={async () => { await loadEvents() }} />
           )}
         </Card>
       ))}

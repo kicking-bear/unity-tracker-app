@@ -53,10 +53,12 @@ export const api = {
   saveScore: (body: { match_id: string; periods: { a: number; b: number }[]; version: number; status: string }) =>
     req<{ ok: boolean; version: number }>('/api/score', { method: 'POST', body: JSON.stringify(body) }),
 
-  codes: () => req<{ tournaments: (StaffTournament & { staff_code: string })[] }>('/api/codes'),
-  rotateCode: (tournament_id: string, code?: string) =>
+  codes: () => req<{ events: { id: string; name: string; staff_code: string }[] }>('/api/codes'),
+  rotateCode: (event_id: string, code?: string) =>
     req<{ ok: boolean; code: string }>('/api/staffcode',
-      { method: 'POST', body: JSON.stringify({ tournament_id, code }) }),
+      { method: 'POST', body: JSON.stringify({ event_id, code }) }),
+  saveTeams: (teams: { id: string; name: string; color: string | null; stage_id: string | null; sort: number }[]) =>
+    req<{ ok: boolean }>('/api/teams', { method: 'PATCH', body: JSON.stringify({ teams }) }),
 
   patchMatch: (id: string, fields: Record<string, unknown>) =>
     req<{ ok: boolean }>('/api/match/' + id, { method: 'PATCH', body: JSON.stringify(fields) }),
