@@ -93,7 +93,8 @@ export function courtColumns(states: TournamentState[], blocks: Block[]): Court[
 
 /**
  * Time down the side, courts across the top — one CSS grid so every row lines up.
- * The gutter is sticky-left and the headings sticky-top, as in a calendar.
+ * The gutter stays pinned to the left while courts scroll sideways; headings
+ * sit above the grid and scroll away with the page, as the bracket columns do.
  */
 const ScheduleView = forwardRef<HTMLDivElement, {
   states: TournamentState[]
@@ -128,12 +129,11 @@ const ScheduleView = forwardRef<HTMLDivElement, {
         className="grid gap-x-3 gap-y-3 pb-4 pl-4 pr-4"
         style={{ gridTemplateColumns: `${TIME_W}px repeat(${columns.length}, minmax(${COL_MIN}px, 1fr))` }}
       >
-        {/* heading row — opaque, and tall enough to mask rows passing beneath */}
-        <div className="sticky left-0 top-14 z-40 bg-background" style={{ width: TIME_W }} />
+        {/* heading row — plain, scrolls with the page like the bracket columns */}
+        <div className="sticky left-0 z-20 bg-background" style={{ width: TIME_W }} />
         {columns.map(c => (
           <div key={c.key} ref={el => registerCol(c.key, el)}
-               className="sticky top-14 z-30 truncate border-b bg-background py-2.5
-                          text-xs font-medium uppercase tracking-wide text-muted-foreground">
+               className="truncate pb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
             {c.label}
           </div>
         ))}
