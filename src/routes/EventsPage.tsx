@@ -68,7 +68,7 @@ export default function EventsPage() {
                                  text-sm font-medium transition hover:border-foreground/30">
                   <Rows3 className="size-5" />Bracket view
                 </Link>
-                <Link to={`/t/${first.slug}/schedule`}
+                <Link to={`/t/${first.slug}?view=schedule`}
                       className="flex flex-col items-center gap-1.5 rounded-lg border bg-muted/30 py-3
                                  text-sm font-medium transition hover:border-foreground/30">
                   <CalendarDays className="size-5" />Schedule view
@@ -78,11 +78,13 @@ export default function EventsPage() {
 
             <Separator className="my-3" />
 
-            {/* divisions — a compact list */}
+            {/* divisions — a plain list, not navigation */}
+            <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Divisions
+            </p>
             <div className="divide-y">
               {ev.tournaments.map(t => (
-                <Link key={t.id} to={`/t/${t.slug}`}
-                      className="-mx-2 flex items-center gap-3 rounded-md px-2 py-2.5 transition hover:bg-accent">
+                <div key={t.id} className="flex items-center gap-3 py-2.5">
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{t.name}</p>
                     <p className="text-xs capitalize text-muted-foreground">
@@ -97,7 +99,7 @@ export default function EventsPage() {
                       : (t.final_count ?? 0) > 0
                         ? <LiveChip label="In play" />
                         : <Badge variant="secondary" className="capitalize">{t.status}</Badge>}
-                </Link>
+                </div>
               ))}
               {!ev.tournaments.length && (
                 <p className="py-2 text-sm text-muted-foreground">No divisions yet.</p>

@@ -66,6 +66,8 @@ export const api = {
       { method: 'POST', body: JSON.stringify({ event_id, code }) }),
   addBlock: (b: Record<string, unknown>) =>
     req<{ ok: boolean; id: string }>('/api/block', { method: 'POST', body: JSON.stringify(b) }),
+  patchBlock: (id: string, fields: Record<string, unknown>) =>
+    req<{ ok: boolean }>('/api/block/' + id, { method: 'PATCH', body: JSON.stringify(fields) }),
   deleteBlock: (id: string) =>
     req<{ ok: boolean }>('/api/block/' + id, { method: 'DELETE' }),
   saveTeams: (teams: { id: string; name: string; color: string | null; stage_id: string | null; sort: number }[]) =>

@@ -62,18 +62,25 @@ function MatchCell({ state, match, number, onSelect }: {
   )
 }
 
-function BlockCell({ block, wide }: { block: Block; wide?: boolean }) {
-  return (
-    <div className={cn('rounded-xl border border-dashed bg-muted/40 px-3 py-2', wide && 'flex items-center gap-3')}>
+function BlockCell({ block, wide, onEdit }: {
+  block: Block; wide?: boolean; onEdit?: (b: Block) => void
+}) {
+  const body = (
+    <>
       <p className="text-sm font-semibold">{block.title}</p>
       {block.details && <p className="text-xs text-muted-foreground">{block.details}</p>}
       {block.end_time && (
-        <p className="ml-auto font-mono text-[11px] text-muted-foreground">
+        <p className={cn('font-mono text-[11px] text-muted-foreground', wide && 'ml-auto')}>
           until {splitTime(block.end_time).join(' ')}
         </p>
       )}
-    </div>
+    </>
   )
+  const cls = cn('w-full rounded-xl border border-dashed bg-muted/40 px-3 py-2 text-left',
+    wide && 'flex items-center gap-3', onEdit && 'transition hover:border-foreground/40 hover:bg-muted/60')
+  return onEdit
+    ? <button type="button" className={cls} onClick={() => onEdit(block)}>{body}</button>
+    : <div className={cls}>{body}</div>
 }
 
 export interface Court { key: string; label: string }
@@ -99,8 +106,9 @@ const ScheduleView = forwardRef<HTMLDivElement, {
   blocks: Block[]
   columns: Court[]
   onSelect: (state: TournamentState, matchId: string) => void
+  onEditBlock?: (b: Block) => void
   registerCol: (key: string, el: HTMLDivElement | null) => void
-}>(({ states, blocks, columns, onSelect, registerCol }, ref) => {
+}>(({ states, blocks, columns, onSelect, onEditBlock, registerCol }, ref) => {
   const numsFor = useMemo(() => new Map(states.map(s => [s, matchNumbers(s)])), [states])
 
   const times = useMemo(() => {
@@ -171,7 +179,7 @@ const ScheduleView = forwardRef<HTMLDivElement, {
                    className="flex items-stretch" style={{ gap: GAP, marginBottom: GAP }}>
                 {spanning.length > 0 ? (
                   <div className="space-y-2" style={{ width: columns.length * (COL_W + GAP) - GAP }}>
-                    {spanning.map(b => <BlockCell key={b.id} block={b} wide />)}
+                    {spanning.map(b => <BlockCell key={b.id} block={b} wide onEdit={onEditBlock} />)}
                   </div>
                 ) : columns.map(c => {
                   const hit = cellAt(time, c.key)
@@ -182,7 +190,7 @@ const ScheduleView = forwardRef<HTMLDivElement, {
                         <MatchCell state={hit.state} match={hit.match}
                                    number={numsFor.get(hit.state)![hit.match.id]}
                                    onSelect={id => onSelect(hit.state, id)} />
-                      ) : blk ? <BlockCell block={blk} />
+                      ) : blk ? <BlockCell block={blk} onEdit={onEditBlock} />
                         : <div className="h-full min-h-10 rounded-xl border border-dashed border-border/40" />}
                     </div>
                   )

@@ -93,8 +93,11 @@
   /* sheets stack their sections; never let flex squash a section shut */
   [data-slot="sheet-content"] > * { flex-shrink: 0; }
 
-  /* SheetShell draws its own close button inside the gradient header */
-  [data-slot="sheet-content"] > [data-slot="sheet-close"] { display: none; }
+  /* SheetShell draws its own close button inside the gradient header,
+     so hide whichever built-in close this shadcn version renders */
+  [data-slot="sheet-content"] > [data-slot="sheet-close"],
+  [data-slot="sheet-content"] > [data-slot="dialog-close"],
+  [data-slot="sheet-content"] > button.absolute { display: none !important; }
 
   /* dialogs keep a clear, single close target */
   [data-slot="dialog-close"] {

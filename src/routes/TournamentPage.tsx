@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { CalendarDays, Maximize2, Minimize2, Plus, Rows3 } from 'lucide-react'
 import { useTournament } from '@/lib/useTournament'
 import { api } from '@/lib/api'
 import { currentStage, liveStageId, matchNumbers } from '@/lib/tournament'
-import type { TournamentState } from '@/lib/types'
+import type { Block, TournamentState } from '@/lib/types'
 import { useRoleContext } from '@/lib/roleContext'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Checkbox } from '@/components/ui/checkbox'
 import { cn } from '@/lib/utils'
 import Bracket, { bracketColumns, LiveDot } from '@/components/Bracket'
 import ScheduleView, { courtColumns } from '@/components/ScheduleView'
@@ -18,8 +19,9 @@ import PoolSheet from '@/components/PoolSheet'
 type View = 'bracket' | 'schedule'
 
 export default function TournamentPage() {
-  const { slug, view: viewParam } = useParams()
-  const view: View = viewParam === 'schedule' ? 'schedule' : 'bracket'
+  const { slug } = useParams()
+  const [params] = useSearchParams()
+  const [view, setView] = useState<View>(params.get('view') === 'schedule' ? 'schedule' : 'bracket')
   const navigate = useNavigate()
   const { isAdmin } = useRoleContext()
   const { state, error, reload } = useTournament(slug)
@@ -31,13 +33,13 @@ export default function TournamentPage() {
   const [siblingStates, setSiblingStates] = useState<TournamentState[]>([])
   const [hidden, setHidden] = useState<Set<string>>(new Set())
   const [blockOpen, setBlockOpen] = useState(false)
+  const [editBlock, setEditBlock] = useState<Block | null>(null)
 
   const cols = useRef<Record<string, HTMLDivElement | null>>({})
   const scroller = useRef<HTMLDivElement>(null)
   const wrap = useRef<HTMLDivElement>(null)
   const positioned = useRef(false)
 
-  const setView = (v: View) => navigate(v === 'schedule' ? `/t/${slug}/schedule` : `/t/${slug}`)
 
   const columns = useMemo(() => (state && view === 'bracket' ? bracketColumns(state) : []), [state, view])
   const blocks = useMemo(() => state?.blocks ?? [], [state])
@@ -152,16 +154,12 @@ export default function TournamentPage() {
               </SelectContent>
             </Select>
           )}
-          {!fs && view === 'schedule' && isAdmin && state.event && (
-            <>
-              <Button variant="outline" size="sm" className="h-9" onClick={() => setBlockOpen(true)}>
-                <Plus className="size-4 sm:mr-1.5 sm:size-3.5" />
-                <span className="hidden sm:inline">Add block</span>
-              </Button>
-              <BlockDialog open={blockOpen} onClose={() => setBlockOpen(false)}
-                           eventId={state.event.id} courts={schedCols.map(c => c.key)}
-                           blocks={blocks} onChanged={async () => { await reload(); await loadSiblings() }} />
-            </>
+          {!fs && view === 'schedule' && isAdmin && (
+            <Button variant="outline" size="sm" className="h-9"
+                    onClick={() => { setEditBlock(null); setBlockOpen(true) }}>
+              <Plus className="size-4 sm:mr-1.5 sm:size-3.5" />
+              <span className="hidden sm:inline">Add block</span>
+            </Button>
           )}
           <Button variant="ghost" size="icon" className="hidden md:inline-flex"
                   onClick={toggleFs} aria-label={fs ? 'Exit full screen' : 'Full screen'}>
@@ -180,22 +178,28 @@ export default function TournamentPage() {
               {c.label}{isLive && <LiveDot />}
             </Button>
           )
-        }) : (state.siblings ?? []).map(s => {
-          const on = !hidden.has(s.slug)
-          return (
-            <Button key={s.slug} size="sm" variant={on ? 'default' : 'outline'}
-                    className={cn('shrink-0 rounded-full', !on && 'text-muted-foreground')}
-                    aria-pressed={on}
-                    onClick={() => setHidden(h => {
+        }) : (
+          <div className="flex items-center gap-4 py-1">
+            <span className="shrink-0 text-xs text-muted-foreground">Show</span>
+            {(state.siblings ?? []).map(s => {
+              const on = !hidden.has(s.slug)
+              const last = !on ? false : (state.siblings?.length ?? 1) - hidden.size <= 1
+              return (
+                <label key={s.slug}
+                       className={cn('flex shrink-0 cursor-pointer items-center gap-2 text-sm',
+                         last && 'cursor-not-allowed opacity-60')}>
+                  <Checkbox checked={on} disabled={last}
+                    onCheckedChange={() => setHidden(h => {
                       const n = new Set(h)
-                      if (n.has(s.slug)) n.delete(s.slug)
-                      else if (n.size < (state.siblings?.length ?? 1) - 1) n.add(s.slug)
+                      if (n.has(s.slug)) n.delete(s.slug); else n.add(s.slug)
                       return n
-                    })}>
-              {s.name}
-            </Button>
-          )
-        })}
+                    })} />
+                  {s.name}
+                </label>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       <div className={fs ? 'min-h-0 flex-1' : undefined}>
@@ -205,11 +209,20 @@ export default function TournamentPage() {
                    registerCol={registerCol} fullscreen={fs} />
         ) : schedCols.length ? (
           <ScheduleView ref={scroller} states={visibleStates} blocks={blocks} columns={schedCols}
-                        onSelect={(st, id) => setSelected({ state: st, id })} registerCol={registerCol} />
+                        onSelect={(st, id) => setSelected({ state: st, id })}
+                        onEditBlock={isAdmin ? b => { setEditBlock(b); setBlockOpen(true) } : undefined}
+                        registerCol={registerCol} />
         ) : (
           <p className="text-sm text-muted-foreground">Loading schedule…</p>
         )}
       </div>
+
+      {isAdmin && state.event && (
+        <BlockDialog open={blockOpen} onClose={() => { setBlockOpen(false); setEditBlock(null) }}
+                     eventId={state.event.id} courts={schedCols.map(c => c.key)}
+                     editing={editBlock}
+                     onChanged={async () => { await reload(); await loadSiblings() }} />
+      )}
 
       <PoolSheet state={state} stageId={pool} onClose={() => setPool(null)}
                  onSelectMatch={id => setSelected({ state, id })} />
