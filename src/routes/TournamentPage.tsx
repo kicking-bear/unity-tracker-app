@@ -12,7 +12,7 @@ import {
 import { cn } from '@/lib/utils'
 import { useRoleContext } from '@/lib/roleContext'
 import Bracket, { bracketColumns, LiveDot } from '@/components/Bracket'
-import ScheduleView, { courtColumns } from '@/components/ScheduleView'
+import ScheduleView, { courtColumns, TIME_W } from '@/components/ScheduleView'
 import BlockDialog from '@/components/BlockDialog'
 import MatchSheet from '@/components/MatchSheet'
 import PoolSheet from '@/components/PoolSheet'
@@ -59,15 +59,17 @@ export default function TournamentPage() {
     cols.current[key] = el
   }, [])
 
-  const offsetOf = (el: HTMLDivElement, sc: HTMLDivElement) =>
-    sc.scrollLeft + el.getBoundingClientRect().left - sc.getBoundingClientRect().left - 16
+  /** distance to bring a column flush to the left, clearing any sticky gutter */
+  const offsetOf = (el: HTMLDivElement, sc: HTMLDivElement, inset: number) =>
+    sc.scrollLeft + el.getBoundingClientRect().left - sc.getBoundingClientRect().left - inset
 
   const goTo = useCallback((key: string) => {
     const el = cols.current[key], sc = scroller.current
     if (!el || !sc) return
-    sc.scrollTo({ left: Math.max(0, offsetOf(el, sc)), behavior: 'smooth' })
+    const inset = view === 'schedule' ? TIME_W + 16 : 16
+    sc.scrollTo({ left: Math.max(0, offsetOf(el, sc, inset)), behavior: 'smooth' })
     setActive(key)
-  }, [])
+  }, [view])
 
   useEffect(() => { positioned.current = false; cols.current = {} }, [view, slug])
 
@@ -76,9 +78,14 @@ export default function TournamentPage() {
     const list = view === 'bracket' ? columns : schedCols
     if (!list.length) return
     positioned.current = true
-    const key = view === 'bracket'
-      ? (() => { const cur = currentStage(state); return cur ? (cur.type === 'pool' ? 'pools' : cur.id) : list[0].key })()
-      : list[0].key
+    if (view === 'schedule') {
+      // start at the left edge; the gutter must stay visible
+      setActive(list[0].key)
+      requestAnimationFrame(() => scroller.current?.scrollTo({ left: 0 }))
+      return
+    }
+    const cur = currentStage(state)
+    const key = cur ? (cur.type === 'pool' ? 'pools' : cur.id) : list[0].key
     requestAnimationFrame(() => goTo(key))
   }, [state, columns, schedCols, view, goTo])
 
@@ -87,17 +94,18 @@ export default function TournamentPage() {
     if (!sc) return
     const onScroll = () => {
       const scRect = sc.getBoundingClientRect()
+      const inset = view === 'schedule' ? TIME_W + 16 : 16
       let best: string | null = null, bestD = Infinity
       for (const [k, el] of Object.entries(cols.current)) {
         if (!el) continue
-        const d = Math.abs(el.getBoundingClientRect().left - scRect.left - 16)
+        const d = Math.abs(el.getBoundingClientRect().left - scRect.left - inset)
         if (d < bestD) { bestD = d; best = k }
       }
       if (best) setActive(best)
     }
     sc.addEventListener('scroll', onScroll, { passive: true })
     return () => sc.removeEventListener('scroll', onScroll)
-  }, [columns.length, schedCols.length])
+  }, [columns.length, schedCols.length, view])
 
   useEffect(() => {
     const onChange = () => setFs(!!document.fullscreenElement)

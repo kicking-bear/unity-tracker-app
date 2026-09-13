@@ -1,10 +1,10 @@
-import { forwardRef, useMemo } from 'react'
+import { Fragment, forwardRef, useMemo } from 'react'
 import { matchNumbers, orderMatches, sideOf, tally, winnerOf } from '@/lib/tournament'
 import type { Block, Match, TournamentState } from '@/lib/types'
 import { LiveChip } from '@/components/Bracket'
 import { cn } from '@/lib/utils'
 
-const TIME_W = 46          // Apple Calendar keeps this narrow
+export const TIME_W = 46          // Apple Calendar keeps this narrow
 const COL_MIN = 232
 
 const gradient = (colors: (string | null | undefined)[]) => {
@@ -125,15 +125,15 @@ const ScheduleView = forwardRef<HTMLDivElement, {
     <div ref={ref} className="-mx-4 overflow-x-auto [&::-webkit-scrollbar]:hidden"
          style={{ scrollbarWidth: 'none' }}>
       <div
-        className="grid gap-x-3 gap-y-3 px-4 pb-4"
+        className="grid gap-x-3 gap-y-3 pb-4 pl-4 pr-4"
         style={{ gridTemplateColumns: `${TIME_W}px repeat(${columns.length}, minmax(${COL_MIN}px, 1fr))` }}
       >
-        {/* heading row */}
-        <div className="sticky left-0 top-14 z-30 bg-background" style={{ width: TIME_W }} />
+        {/* heading row — opaque, and tall enough to mask rows passing beneath */}
+        <div className="sticky left-0 top-14 z-40 bg-background" style={{ width: TIME_W }} />
         {columns.map(c => (
           <div key={c.key} ref={el => registerCol(c.key, el)}
-               className="sticky top-14 z-20 truncate border-b bg-background/95 pb-2 pt-1
-                          text-xs font-medium uppercase tracking-wide text-muted-foreground backdrop-blur">
+               className="sticky top-14 z-30 truncate border-b bg-background py-2.5
+                          text-xs font-medium uppercase tracking-wide text-muted-foreground">
             {c.label}
           </div>
         ))}
@@ -143,8 +143,8 @@ const ScheduleView = forwardRef<HTMLDivElement, {
           const spanning = blocks.filter(b => (b.start_time || '') === time && (!b.court || b.court === 'ALL'))
           const [hhmm, ap] = splitTime(time)
           return (
-            <div key={time || 'tbd'} className="contents">
-              <div className="sticky left-0 z-10 flex flex-col items-end bg-background pt-1.5 text-right"
+            <Fragment key={time || 'tbd'}>
+              <div className="sticky left-0 z-20 flex flex-col items-end bg-background pr-2 pt-1.5 text-right"
                    style={{ width: TIME_W }}>
                 <span className="font-mono text-[11px] leading-tight tabular-nums text-muted-foreground">{hhmm}</span>
                 {ap && <span className="font-mono text-[9px] leading-tight text-muted-foreground/70">{ap}</span>}
@@ -173,7 +173,7 @@ const ScheduleView = forwardRef<HTMLDivElement, {
                   )
                 })
               )}
-            </div>
+            </Fragment>
           )
         })}
       </div>
