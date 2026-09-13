@@ -161,7 +161,7 @@ const ScheduleView = forwardRef<HTMLDivElement, {
 
       {/* scrolling court grid */}
       <div ref={ref} className="min-w-0 flex-1 overflow-x-auto scroll-smooth [&::-webkit-scrollbar]:hidden"
-           style={{ scrollbarWidth: 'none' }}>
+           style={{ scrollbarWidth: 'none', touchAction: 'pan-x pan-y', overscrollBehaviorX: 'contain' }}>
         <div style={{ width: columns.length * (COL_W + GAP) + 16 }} className="pr-4">
           <div className="flex" style={{ gap: GAP, height: HEAD_H }}>
             {columns.map(c => (

@@ -82,7 +82,7 @@ export default function BlockDialog({
           <Select value={court} onValueChange={setCourt}>
             <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="ALL">All courts</SelectItem>
+              <SelectItem value="ALL">All locations</SelectItem>
               {courts.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
             </SelectContent>
           </Select>

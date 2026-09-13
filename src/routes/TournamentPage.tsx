@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { CalendarDays, Maximize2, Minimize2, Plus, Rows3 } from 'lucide-react'
 import { useTournament } from '@/lib/useTournament'
 import { api } from '@/lib/api'
-import { currentStage, liveStageId, matchNumbers } from '@/lib/tournament'
+import { currentStage, liveStageId, matchNumbers, tournamentComplete } from '@/lib/tournament'
 import type { Block, TournamentState } from '@/lib/types'
 import { useRoleContext } from '@/lib/roleContext'
 import { Button } from '@/components/ui/button'
@@ -73,9 +73,22 @@ export default function TournamentPage() {
   useEffect(() => {
     if (!state || positioned.current || view !== 'bracket' || !columns.length) return
     positioned.current = true
-    const cur = currentStage(state)
-    requestAnimationFrame(() => goTo(cur ? (cur.type === 'pool' ? 'pools' : cur.id) : columns[0].key))
+    const cur = tournamentComplete(state) ? null : currentStage(state)
+    const key = cur ? (cur.type === 'pool' ? 'pools' : cur.id) : columns[0].key
+    setActive(key)
+    requestAnimationFrame(() => {
+      // the first column sits flush at the left edge
+      if (key === columns[0].key) scroller.current?.scrollTo({ left: 0 })
+      else goTo(key)
+    })
   }, [state, columns, view, goTo])
+
+  // keep a chip selected whenever the column set changes (e.g. on resize)
+  useEffect(() => {
+    const list = view === 'bracket' ? columns : schedCols
+    if (!list.length) return
+    if (!active || !list.some(c => c.key === active)) setActive(list[0].key)
+  }, [columns, schedCols, view, active])
 
   useEffect(() => {
     const sc = scroller.current
@@ -169,7 +182,9 @@ export default function TournamentPage() {
       </div>
 
       {/* bracket: stage chips · schedule: division toggles */}
-      <div className="-mx-4 flex gap-1 overflow-x-auto px-4 pb-1" style={{ scrollbarWidth: 'none' }}>
+      <div className="-mx-4 flex flex-nowrap gap-1 overflow-x-auto px-4 pb-1
+                      [&::-webkit-scrollbar]:hidden"
+           style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
         {view === 'bracket' ? columns.map(c => {
           const isLive = c.stages.some(s => s.id === live)
           return (

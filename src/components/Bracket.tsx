@@ -265,9 +265,9 @@ const Bracket = forwardRef<HTMLDivElement, {
   const nums = matchNumbers(state)
   return (
     <div ref={ref}
-      className={cn('-mx-4 snap-x snap-proximity scroll-pl-4 overflow-x-auto scroll-smooth',
+      className={cn('-mx-4 snap-x snap-proximity scroll-pl-4 overflow-x-auto overflow-y-hidden scroll-smooth',
         '[&::-webkit-scrollbar]:hidden', fullscreen && 'h-full')}
-      style={{ scrollbarWidth: 'none' }}>
+      style={{ scrollbarWidth: 'none', touchAction: 'pan-x pan-y', overscrollBehaviorX: 'contain' }}>
       <div className={cn('flex w-max px-4 pb-4', fullscreen && 'h-full items-center px-8')} style={{ gap: GAP }}>
         {columns.map((col, i) => (
           <Column key={col.key} state={state} col={col} next={columns[i + 1]} liveStage={liveStage}
