@@ -6,14 +6,12 @@ import SheetShell from '@/components/SheetShell'
 import TeamEditor from '@/components/TeamEditor'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import DateField from '@/components/DateField'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import {
   Accordion, AccordionContent, AccordionItem, AccordionTrigger,
 } from '@/components/ui/accordion'
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
@@ -60,9 +58,7 @@ export default function EventAdminDialog({
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="ev-date">Date</Label>
-          <Input id="ev-date" type="date" value={date} onChange={e => setDate(e.target.value)}
-                 className="h-10 w-full [&::-webkit-calendar-picker-indicator]:opacity-60
-                            [&::-webkit-calendar-picker-indicator]:invert" />
+          <DateField id="ev-date" value={date} onChange={setDate} />
         </div>
         <Button size="sm" className="w-full" onClick={saveEvent} disabled={!evDirty}>Save event</Button>
       </div>
@@ -85,17 +81,9 @@ export default function EventAdminDialog({
               </div>
             </div>
 
-            <div className="space-y-1.5">
-              <Label>Status</Label>
-              <Select value={t.status} onValueChange={v => saveTournament(t.id, { status: v }, 'Status updated')}>
-                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="setup">Setup</SelectItem>
-                  <SelectItem value="live">Live</SelectItem>
-                  <SelectItem value="complete">Complete</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <p className="text-xs text-muted-foreground">
+              Status is set automatically — it turns complete once every match has a final score.
+            </p>
 
             <Accordion type="single" collapsible>
               <AccordionItem value="teams" className="border-none">

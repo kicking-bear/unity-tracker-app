@@ -29,6 +29,13 @@ async function req<T>(path: string, init: RequestInit = {}): Promise<T> {
   })
   const data = await res.json().catch(() => ({}))
   if (!res.ok) {
+    // a signed-in session that stops being accepted has expired
+    if ((res.status === 401 || res.status === 403) && getSession()) {
+      setSession('')
+      window.dispatchEvent(new CustomEvent('tt:session-expired'))
+      throw Object.assign(new Error('Your session expired — sign in again'),
+        { status: res.status, data })
+    }
     throw Object.assign(new Error((data as { error?: string }).error ?? res.statusText),
       { status: res.status, data })
   }

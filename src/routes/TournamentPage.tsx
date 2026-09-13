@@ -138,8 +138,9 @@ export default function TournamentPage() {
           </h1>
         ) : (
           <Select value={slug} onValueChange={v => navigate(`/t/${v}`)}>
-            <SelectTrigger className="h-auto w-auto min-w-0 max-w-[62vw] gap-2 border-0 bg-transparent px-0
-                                      text-xl font-semibold tracking-tight shadow-none focus-visible:ring-0
+            <SelectTrigger className="h-auto w-auto min-w-0 max-w-[58vw] gap-2 rounded-lg border-0
+                                      bg-transparent px-2 py-1 text-base font-semibold tracking-tight
+                                      shadow-none hover:bg-accent focus-visible:ring-0
                                       sm:max-w-none sm:text-2xl">
               <SelectValue />
             </SelectTrigger>
@@ -155,12 +156,16 @@ export default function TournamentPage() {
           {!fs && (
             <div className="flex overflow-hidden rounded-full border">
               <Button size="sm" variant={view === 'bracket' ? 'default' : 'ghost'}
-                      className="h-8 rounded-none px-3" onClick={() => setView('bracket')}>
-                <Rows3 className="mr-1.5 size-3.5" />Bracket
+                      aria-label="Bracket view" title="Bracket view"
+                      className="h-8 rounded-none px-2.5 sm:px-3" onClick={() => setView('bracket')}>
+                <Rows3 className="size-4 sm:mr-1.5 sm:size-3.5" />
+                <span className="hidden sm:inline">Bracket</span>
               </Button>
               <Button size="sm" variant={view === 'schedule' ? 'default' : 'ghost'}
-                      className="h-8 rounded-none px-3" onClick={() => setView('schedule')}>
-                <CalendarDays className="mr-1.5 size-3.5" />Schedule
+                      aria-label="Schedule view" title="Schedule view"
+                      className="h-8 rounded-none px-2.5 sm:px-3" onClick={() => setView('schedule')}>
+                <CalendarDays className="size-4 sm:mr-1.5 sm:size-3.5" />
+                <span className="hidden sm:inline">Schedule</span>
               </Button>
             </div>
           )}

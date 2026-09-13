@@ -28,6 +28,12 @@ export function useRole() {
     return r.tournaments
   }, [])
 
+  useEffect(() => {
+    const onExpired = () => { setRole('viewer'); setUsername(null) }
+    window.addEventListener('tt:session-expired', onExpired)
+    return () => window.removeEventListener('tt:session-expired', onExpired)
+  }, [])
+
   const signOut = useCallback(() => {
     setSession(''); setStaffCode(''); setRole('viewer'); setUsername(null)
   }, [])

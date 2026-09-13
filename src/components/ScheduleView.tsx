@@ -4,7 +4,7 @@ import type { Block, Match, TournamentState } from '@/lib/types'
 import { LiveChip } from '@/components/Bracket'
 import { cn } from '@/lib/utils'
 
-const TIME_W = 64
+const TIME_W = 88
 const COL_W = 264
 
 const gradient = (colors: (string | null | undefined)[]) => {
@@ -103,12 +103,13 @@ const ScheduleView = forwardRef<HTMLDivElement, {
       className="-mx-4 overflow-x-auto scroll-smooth px-0 [&::-webkit-scrollbar]:hidden"
       style={{ scrollbarWidth: 'none' }}>
       <div style={{ minWidth: TIME_W + columns.length * (COL_W + 12) + 32 }}>
-        {/* column headings */}
-        <div className="flex gap-3 px-4 pb-2" style={{ paddingLeft: TIME_W + 16 }}>
+        {/* column headings — same flex shape as the rows, so they line up */}
+        <div className="sticky top-14 z-20 flex items-stretch gap-3 border-b bg-background/95 px-4 py-2 backdrop-blur">
+          <div style={{ width: TIME_W }} className="shrink-0" />
           {columns.map(c => (
             <div key={c.key} ref={el => registerCol(c.key, el)}
                  style={{ width: COL_W }}
-                 className="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                 className="shrink-0 truncate text-xs font-medium uppercase tracking-wide text-muted-foreground">
               {c.label}
             </div>
           ))}
@@ -117,9 +118,9 @@ const ScheduleView = forwardRef<HTMLDivElement, {
         {rows.map(time => {
           const allDay = blocksAt(time).filter(b => !b.court || b.court === 'ALL')
           return (
-            <div key={time || 'tbd'} className="flex items-stretch gap-3 px-4 pb-3">
+            <div key={time || 'tbd'} className="flex items-stretch gap-3 px-4 pt-3">
               <div style={{ width: TIME_W }}
-                   className="shrink-0 pt-1 font-mono text-xs tabular-nums text-muted-foreground">
+                   className="shrink-0 whitespace-nowrap pt-1.5 font-mono text-xs tabular-nums text-muted-foreground">
                 {time ? fmtTime(time) : 'TBD'}
               </div>
 

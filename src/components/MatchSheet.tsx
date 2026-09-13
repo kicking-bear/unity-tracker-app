@@ -6,6 +6,7 @@ import type { TournamentState } from '@/lib/types'
 import { useRoleContext } from '@/lib/roleContext'
 import { cn } from '@/lib/utils'
 import SheetShell from '@/components/SheetShell'
+import TimeField from '@/components/TimeField'
 import { LiveChip } from '@/components/Bracket'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -195,8 +196,8 @@ export default function MatchSheet({
           <div className="mt-3 grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="mt-time">Start time</Label>
-              <Input id="mt-time" type="time" defaultValue={match.start_time ?? ''} className="w-full"
-                onBlur={e => e.target.value !== (match.start_time ?? '') && patch({ start_time: e.target.value || null })} />
+              <TimeField id="mt-time" defaultValue={match.start_time ?? ''}
+                onBlur={v => v !== (match.start_time ?? '') && patch({ start_time: v || null })} />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="mt-court">Court</Label>

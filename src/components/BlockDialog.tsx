@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 import { api } from '@/lib/api'
 import type { Block } from '@/lib/types'
 import SheetShell from '@/components/SheetShell'
+import TimeField from '@/components/TimeField'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -11,7 +12,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 
-const RED = 'bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-600'
+const RED: string = 'bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-600'
 
 export default function BlockDialog({
   open, onClose, eventId, courts, blocks, onChanged,
@@ -23,6 +24,7 @@ export default function BlockDialog({
   const [details, setDetails] = useState('')
   const [court, setCourt] = useState('ALL')
   const [time, setTime] = useState('')
+  const [endTime, setEndTime] = useState('')
   const [busy, setBusy] = useState(false)
 
   async function save() {
@@ -32,9 +34,9 @@ export default function BlockDialog({
     try {
       await api.addBlock({
         event_id: eventId, title: title.trim(), details: details.trim() || null,
-        court, start_time: time,
+        court, start_time: time, end_time: endTime || null,
       })
-      setTitle(''); setDetails(''); setTime('')
+      setTitle(''); setDetails(''); setTime(''); setEndTime('')
       await onChanged(); toast.success('Block added')
     } catch (e) { toast.error((e as Error).message) }
     setBusy(false)
@@ -69,10 +71,15 @@ export default function BlockDialog({
             </SelectContent>
           </Select>
         </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="blk-time">Start time</Label>
-          <Input id="blk-time" type="time" value={time} className="h-10 w-full"
-                 onChange={e => setTime(e.target.value)} />
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="blk-time">Start time</Label>
+            <TimeField id="blk-time" value={time} onChange={setTime} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="blk-end">End time</Label>
+            <TimeField id="blk-end" value={endTime} onChange={setEndTime} />
+          </div>
         </div>
         <Button className="w-full" onClick={save} disabled={busy}>Add block</Button>
       </div>
@@ -87,7 +94,7 @@ export default function BlockDialog({
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{b.title}</p>
                   <p className="text-xs text-muted-foreground">
-                    {b.start_time} · {b.court === 'ALL' || !b.court ? 'All courts' : b.court}
+                    {b.start_time}{b.end_time ? `–${b.end_time}` : ''} · {b.court === 'ALL' || !b.court ? 'All courts' : b.court}
                   </p>
                 </div>
                 <Button size="sm" className={RED} onClick={() => remove(b.id)}>Remove</Button>

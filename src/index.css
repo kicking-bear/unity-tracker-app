@@ -93,12 +93,24 @@
   /* sheets stack their sections; never let flex squash a section shut */
   [data-slot="sheet-content"] > * { flex-shrink: 0; }
 
-  /* close buttons on sheets / dialogs: make them an obvious target */
-  [data-slot$="-close"],
-  [role="dialog"] > button.absolute {
+  /* SheetShell draws its own close button inside the gradient header */
+  [data-slot="sheet-content"] > [data-slot="sheet-close"] { display: none; }
+
+  /* dialogs keep a clear, single close target */
+  [data-slot="dialog-close"] {
     @apply top-3 right-3 flex size-9 items-center justify-center rounded-full
            bg-muted text-foreground opacity-100 ring-0 transition hover:bg-accent;
   }
-  [data-slot$="-close"] svg,
-  [role="dialog"] > button.absolute svg { @apply size-4; }
+  [data-slot="dialog-close"] svg { @apply size-4; }
+
+  /* native date/time fields: visible indicator, full-width target */
+  input[type="time"], input[type="date"] { @apply w-full; }
+  input[type="time"]::-webkit-calendar-picker-indicator,
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+    opacity: .7;
+    cursor: pointer;
+  }
+  input[type="time"]::-webkit-calendar-picker-indicator:hover,
+  input[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: 1; }
 }
