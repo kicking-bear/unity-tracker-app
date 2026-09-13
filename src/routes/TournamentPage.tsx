@@ -5,14 +5,12 @@ import { useTournament } from '@/lib/useTournament'
 import { api } from '@/lib/api'
 import { currentStage, liveStageId, matchNumbers } from '@/lib/tournament'
 import type { TournamentState } from '@/lib/types'
-import { Button } from '@/components/ui/button'
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select'
-import { cn } from '@/lib/utils'
 import { useRoleContext } from '@/lib/roleContext'
+import { Button } from '@/components/ui/button'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { cn } from '@/lib/utils'
 import Bracket, { bracketColumns, LiveDot } from '@/components/Bracket'
-import ScheduleView, { courtColumns, TIME_W } from '@/components/ScheduleView'
+import ScheduleView, { courtColumns } from '@/components/ScheduleView'
 import BlockDialog from '@/components/BlockDialog'
 import MatchSheet from '@/components/MatchSheet'
 import PoolSheet from '@/components/PoolSheet'
@@ -20,16 +18,18 @@ import PoolSheet from '@/components/PoolSheet'
 type View = 'bracket' | 'schedule'
 
 export default function TournamentPage() {
-  const { slug } = useParams()
-  const { isAdmin } = useRoleContext()
+  const { slug, view: viewParam } = useParams()
+  const view: View = viewParam === 'schedule' ? 'schedule' : 'bracket'
   const navigate = useNavigate()
+  const { isAdmin } = useRoleContext()
   const { state, error, reload } = useTournament(slug)
-  const [view, setView] = useState<View>('bracket')
+
   const [selected, setSelected] = useState<{ state: TournamentState; id: string } | null>(null)
   const [pool, setPool] = useState<string | null>(null)
   const [active, setActive] = useState<string | null>(null)
   const [fs, setFs] = useState(false)
   const [siblingStates, setSiblingStates] = useState<TournamentState[]>([])
+  const [hidden, setHidden] = useState<Set<string>>(new Set())
   const [blockOpen, setBlockOpen] = useState(false)
 
   const cols = useRef<Record<string, HTMLDivElement | null>>({})
@@ -37,75 +37,60 @@ export default function TournamentPage() {
   const wrap = useRef<HTMLDivElement>(null)
   const positioned = useRef(false)
 
-  const columns = useMemo(
-    () => (state && view === 'bracket' ? bracketColumns(state) : []), [state, view])
+  const setView = (v: View) => navigate(v === 'schedule' ? `/t/${slug}/schedule` : `/t/${slug}`)
+
+  const columns = useMemo(() => (state && view === 'bracket' ? bracketColumns(state) : []), [state, view])
   const blocks = useMemo(() => state?.blocks ?? [], [state])
+  const visibleStates = useMemo(
+    () => siblingStates.filter(s => s.tournament && !hidden.has(s.tournament.slug)), [siblingStates, hidden])
   const schedCols = useMemo(
-    () => (view === 'schedule' && siblingStates.length ? courtColumns(siblingStates, blocks) : []),
-    [view, siblingStates, blocks])
+    () => (view === 'schedule' && visibleStates.length ? courtColumns(visibleStates, blocks) : []),
+    [view, visibleStates, blocks])
   const nums = useMemo(() => (state ? matchNumbers(state) : {}), [state])
 
-  // schedule view spans the whole event, so load the sibling tournaments too
-  useEffect(() => {
-    if (view !== 'schedule' || !state?.siblings?.length) return
-    let cancelled = false
-    Promise.all(state.siblings.map(s => api.tournament(s.slug)))
-      .then(list => { if (!cancelled) setSiblingStates(list) })
-      .catch(() => {})
-    return () => { cancelled = true }
-  }, [view, state?.siblings])
+  const loadSiblings = useCallback(async () => {
+    if (!state?.siblings?.length) return
+    const list = await Promise.all(state.siblings.map(s => api.tournament(s.slug)))
+    setSiblingStates(list)
+  }, [state?.siblings])
 
-  const registerCol = useCallback((key: string, el: HTMLDivElement | null) => {
-    cols.current[key] = el
-  }, [])
+  useEffect(() => { if (view === 'schedule') void loadSiblings() }, [view, loadSiblings])
 
-  /** distance to bring a column flush to the left, clearing any sticky gutter */
-  const offsetOf = (el: HTMLDivElement, sc: HTMLDivElement, inset: number) =>
-    sc.scrollLeft + el.getBoundingClientRect().left - sc.getBoundingClientRect().left - inset
+  const registerCol = useCallback((key: string, el: HTMLDivElement | null) => { cols.current[key] = el }, [])
 
   const goTo = useCallback((key: string) => {
     const el = cols.current[key], sc = scroller.current
     if (!el || !sc) return
-    const inset = view === 'schedule' ? TIME_W + 16 : 16
-    sc.scrollTo({ left: Math.max(0, offsetOf(el, sc, inset)), behavior: 'smooth' })
+    const left = sc.scrollLeft + el.getBoundingClientRect().left - sc.getBoundingClientRect().left - (view === 'bracket' ? 16 : 0)
+    sc.scrollTo({ left: Math.max(0, left), behavior: 'smooth' })
     setActive(key)
   }, [view])
 
   useEffect(() => { positioned.current = false; cols.current = {} }, [view, slug])
 
   useEffect(() => {
-    if (!state || positioned.current) return
-    const list = view === 'bracket' ? columns : schedCols
-    if (!list.length) return
+    if (!state || positioned.current || view !== 'bracket' || !columns.length) return
     positioned.current = true
-    if (view === 'schedule') {
-      // start at the left edge; the gutter must stay visible
-      setActive(list[0].key)
-      requestAnimationFrame(() => scroller.current?.scrollTo({ left: 0 }))
-      return
-    }
     const cur = currentStage(state)
-    const key = cur ? (cur.type === 'pool' ? 'pools' : cur.id) : list[0].key
-    requestAnimationFrame(() => goTo(key))
-  }, [state, columns, schedCols, view, goTo])
+    requestAnimationFrame(() => goTo(cur ? (cur.type === 'pool' ? 'pools' : cur.id) : columns[0].key))
+  }, [state, columns, view, goTo])
 
   useEffect(() => {
     const sc = scroller.current
-    if (!sc) return
+    if (!sc || view !== 'bracket') return
     const onScroll = () => {
       const scRect = sc.getBoundingClientRect()
-      const inset = view === 'schedule' ? TIME_W + 16 : 16
       let best: string | null = null, bestD = Infinity
       for (const [k, el] of Object.entries(cols.current)) {
         if (!el) continue
-        const d = Math.abs(el.getBoundingClientRect().left - scRect.left - inset)
+        const d = Math.abs(el.getBoundingClientRect().left - scRect.left - 16)
         if (d < bestD) { bestD = d; best = k }
       }
       if (best) setActive(best)
     }
     sc.addEventListener('scroll', onScroll, { passive: true })
     return () => sc.removeEventListener('scroll', onScroll)
-  }, [columns.length, schedCols.length, view])
+  }, [columns.length, view])
 
   useEffect(() => {
     const onChange = () => setFs(!!document.fullscreenElement)
@@ -121,61 +106,62 @@ export default function TournamentPage() {
   if (!state?.tournament) return <p className="text-sm text-muted-foreground">Loading…</p>
 
   const live = liveStageId(state)
-  const tabs = view === 'bracket'
-    ? columns.map(c => ({ key: c.key, label: c.label, live: c.stages.some(s => s.id === live) }))
-    : schedCols.map(c => ({ key: c.key, label: c.label, live: false }))
 
   return (
     <div ref={wrap} className={fs ? 'flex h-screen flex-col bg-background p-6' : 'space-y-3'}>
-      {/* breadcrumb */}
       {!fs && (
         <div className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
-          <Link to="/" className="shrink-0 transition-colors hover:text-foreground">Tournaments</Link>
+          <Link to="/" className="shrink-0 hover:text-foreground">Tournaments</Link>
           <span className="shrink-0">/</span>
-          <Link to="/" className="min-w-0 truncate transition-colors hover:text-foreground">
-            {state.event?.name}
-          </Link>
+          <Link to="/" className="min-w-0 truncate hover:text-foreground">{state.event?.name}</Link>
         </div>
       )}
 
-      {/* division switcher + view toggle */}
+      {/* toggle left · context control right */}
       <div className="flex min-w-0 items-center gap-2">
         {fs ? (
           <h1 className="truncate text-3xl font-semibold tracking-tight">
-            {state.event?.name} — {state.tournament.name}
+            {state.event?.name} — {view === 'schedule' ? 'Schedule' : state.tournament.name}
           </h1>
         ) : (
-          <Select value={slug} onValueChange={v => navigate(`/t/${v}`)}>
-            <SelectTrigger className="h-auto w-auto min-w-0 max-w-[58vw] gap-2 rounded-lg border-0
-                                      bg-transparent px-2 py-1 text-base font-semibold tracking-tight
-                                      shadow-none hover:bg-accent focus-visible:ring-0
-                                      sm:max-w-none sm:text-2xl">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent align="start">
-              {(state.siblings ?? []).map(s => (
-                <SelectItem key={s.slug} value={s.slug}>{s.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex shrink-0 overflow-hidden rounded-full border">
+            <Button size="sm" variant={view === 'bracket' ? 'default' : 'ghost'}
+                    aria-label="Bracket view" title="Bracket view"
+                    className="h-8 rounded-none px-2.5 sm:px-3" onClick={() => setView('bracket')}>
+              <Rows3 className="size-4 sm:mr-1.5 sm:size-3.5" />
+              <span className="hidden sm:inline">Bracket</span>
+            </Button>
+            <Button size="sm" variant={view === 'schedule' ? 'default' : 'ghost'}
+                    aria-label="Schedule view" title="Schedule view"
+                    className="h-8 rounded-none px-2.5 sm:px-3" onClick={() => setView('schedule')}>
+              <CalendarDays className="size-4 sm:mr-1.5 sm:size-3.5" />
+              <span className="hidden sm:inline">Schedule</span>
+            </Button>
+          </div>
         )}
 
-        <div className="ml-auto flex shrink-0 items-center gap-1">
-          {!fs && (
-            <div className="flex overflow-hidden rounded-full border">
-              <Button size="sm" variant={view === 'bracket' ? 'default' : 'ghost'}
-                      aria-label="Bracket view" title="Bracket view"
-                      className="h-8 rounded-none px-2.5 sm:px-3" onClick={() => setView('bracket')}>
-                <Rows3 className="size-4 sm:mr-1.5 sm:size-3.5" />
-                <span className="hidden sm:inline">Bracket</span>
+        <div className="ml-auto flex min-w-0 items-center gap-1">
+          {!fs && view === 'bracket' && (
+            <Select value={slug} onValueChange={v => navigate(`/t/${v}`)}>
+              <SelectTrigger className="h-9 w-auto min-w-0 max-w-[52vw] gap-2 rounded-lg px-3
+                                        text-sm font-semibold sm:max-w-none sm:text-base">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent align="end">
+                {(state.siblings ?? []).map(s => <SelectItem key={s.slug} value={s.slug}>{s.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          )}
+          {!fs && view === 'schedule' && isAdmin && state.event && (
+            <>
+              <Button variant="outline" size="sm" className="h-9" onClick={() => setBlockOpen(true)}>
+                <Plus className="size-4 sm:mr-1.5 sm:size-3.5" />
+                <span className="hidden sm:inline">Add block</span>
               </Button>
-              <Button size="sm" variant={view === 'schedule' ? 'default' : 'ghost'}
-                      aria-label="Schedule view" title="Schedule view"
-                      className="h-8 rounded-none px-2.5 sm:px-3" onClick={() => setView('schedule')}>
-                <CalendarDays className="size-4 sm:mr-1.5 sm:size-3.5" />
-                <span className="hidden sm:inline">Schedule</span>
-              </Button>
-            </div>
+              <BlockDialog open={blockOpen} onClose={() => setBlockOpen(false)}
+                           eventId={state.event.id} courts={schedCols.map(c => c.key)}
+                           blocks={blocks} onChanged={async () => { await reload(); await loadSiblings() }} />
+            </>
           )}
           <Button variant="ghost" size="icon" className="hidden md:inline-flex"
                   onClick={toggleFs} aria-label={fs ? 'Exit full screen' : 'Full screen'}>
@@ -184,25 +170,32 @@ export default function TournamentPage() {
         </div>
       </div>
 
-      {view === 'schedule' && isAdmin && state.event && (
-        <div className="flex justify-end">
-          <Button variant="outline" size="sm" onClick={() => setBlockOpen(true)}>
-            <Plus className="mr-1.5 size-3.5" />Add block
-          </Button>
-          <BlockDialog open={blockOpen} onClose={() => setBlockOpen(false)}
-                       eventId={state.event.id} courts={schedCols.map(c => c.key)}
-                       blocks={blocks} onChanged={reload} />
-        </div>
-      )}
-
-      {/* stage / court chips */}
+      {/* bracket: stage chips · schedule: division toggles */}
       <div className="-mx-4 flex gap-1 overflow-x-auto px-4 pb-1" style={{ scrollbarWidth: 'none' }}>
-        {tabs.map(t => (
-          <Button key={t.key} size="sm" variant={active === t.key ? 'default' : 'ghost'}
-                  className="shrink-0 gap-1.5 rounded-full" onClick={() => goTo(t.key)}>
-            {t.label}{t.live && <LiveDot />}
-          </Button>
-        ))}
+        {view === 'bracket' ? columns.map(c => {
+          const isLive = c.stages.some(s => s.id === live)
+          return (
+            <Button key={c.key} size="sm" variant={active === c.key ? 'default' : 'ghost'}
+                    className="shrink-0 gap-1.5 rounded-full" onClick={() => goTo(c.key)}>
+              {c.label}{isLive && <LiveDot />}
+            </Button>
+          )
+        }) : (state.siblings ?? []).map(s => {
+          const on = !hidden.has(s.slug)
+          return (
+            <Button key={s.slug} size="sm" variant={on ? 'default' : 'outline'}
+                    className={cn('shrink-0 rounded-full', !on && 'text-muted-foreground')}
+                    aria-pressed={on}
+                    onClick={() => setHidden(h => {
+                      const n = new Set(h)
+                      if (n.has(s.slug)) n.delete(s.slug)
+                      else if (n.size < (state.siblings?.length ?? 1) - 1) n.add(s.slug)
+                      return n
+                    })}>
+              {s.name}
+            </Button>
+          )
+        })}
       </div>
 
       <div className={fs ? 'min-h-0 flex-1' : undefined}>
@@ -211,9 +204,8 @@ export default function TournamentPage() {
                    onSelect={id => setSelected({ state, id })} onOpenPool={setPool}
                    registerCol={registerCol} fullscreen={fs} />
         ) : schedCols.length ? (
-          <ScheduleView ref={scroller} states={siblingStates} blocks={blocks} columns={schedCols}
-                        onSelect={(st, id) => setSelected({ state: st, id })}
-                        registerCol={registerCol} />
+          <ScheduleView ref={scroller} states={visibleStates} blocks={blocks} columns={schedCols}
+                        onSelect={(st, id) => setSelected({ state: st, id })} registerCol={registerCol} />
         ) : (
           <p className="text-sm text-muted-foreground">Loading schedule…</p>
         )}
@@ -221,19 +213,10 @@ export default function TournamentPage() {
 
       <PoolSheet state={state} stageId={pool} onClose={() => setPool(null)}
                  onSelectMatch={id => setSelected({ state, id })} />
-
-      <MatchSheet
-        state={selected?.state ?? state}
-        matchId={selected?.id ?? null}
-        number={selected ? matchNumbers(selected.state)[selected.id] : undefined}
-        onClose={() => setSelected(null)}
-        onChanged={async () => {
-          await reload()
-          if (view === 'schedule' && state.siblings?.length) {
-            const list = await Promise.all(state.siblings.map(s => api.tournament(s.slug)))
-            setSiblingStates(list)
-          }
-        }} />
+      <MatchSheet state={selected?.state ?? state} matchId={selected?.id ?? null}
+                  number={selected ? matchNumbers(selected.state)[selected.id] : undefined}
+                  onClose={() => setSelected(null)}
+                  onChanged={async () => { await reload(); if (view === 'schedule') await loadSiblings() }} />
     </div>
   )
 }

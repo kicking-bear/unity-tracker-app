@@ -1,18 +1,18 @@
-import { Fragment, forwardRef, useMemo } from 'react'
+import { forwardRef, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { matchNumbers, orderMatches, sideOf, tally, winnerOf } from '@/lib/tournament'
 import type { Block, Match, TournamentState } from '@/lib/types'
 import { LiveChip } from '@/components/Bracket'
 import { cn } from '@/lib/utils'
 
-export const TIME_W = 46          // Apple Calendar keeps this narrow
-const COL_MIN = 232
+export const TIME_W = 46
+const COL_W = 240
+const GAP = 12
 
 const gradient = (colors: (string | null | undefined)[]) => {
   const cs = colors.map(c => c || '#3A3F47')
   return `linear-gradient(90deg, ${(cs.length === 1 ? [cs[0], cs[0]] : cs).join(', ')})`
 }
 
-/** "14:30" -> ["2:30","PM"] so the gutter can stack them */
 function splitTime(t?: string | null): [string, string] {
   if (!t) return ['TBD', '']
   const m = /^(\d{1,2}):(\d{2})$/.exec(t)
@@ -64,8 +64,7 @@ function MatchCell({ state, match, number, onSelect }: {
 
 function BlockCell({ block, wide }: { block: Block; wide?: boolean }) {
   return (
-    <div className={cn('rounded-xl border border-dashed bg-muted/40 px-3 py-2',
-      wide && 'flex items-center gap-3')}>
+    <div className={cn('rounded-xl border border-dashed bg-muted/40 px-3 py-2', wide && 'flex items-center gap-3')}>
       <p className="text-sm font-semibold">{block.title}</p>
       {block.details && <p className="text-xs text-muted-foreground">{block.details}</p>}
       {block.end_time && (
@@ -83,7 +82,6 @@ export function courtLabel(s: TournamentState, court: string) {
   const d = s.tournament?.division
   return (d === 'mens' ? "Men's " : d === 'womens' ? "Women's " : '') + court
 }
-
 export function courtColumns(states: TournamentState[], blocks: Block[]): Court[] {
   const set = new Set<string>()
   states.forEach(s => s.matches.forEach(m => { if (m.court) set.add(courtLabel(s, m.court)) }))
@@ -92,9 +90,9 @@ export function courtColumns(states: TournamentState[], blocks: Block[]): Court[
 }
 
 /**
- * Time down the side, courts across the top — one CSS grid so every row lines up.
- * The gutter stays pinned to the left while courts scroll sideways; headings
- * sit above the grid and scroll away with the page, as the bracket columns do.
+ * Two panes: a fixed time gutter that never scrolls sideways, and a court grid
+ * that does. Row heights are measured from the grid and mirrored onto the
+ * gutter, so the two stay aligned without relying on position:sticky.
  */
 const ScheduleView = forwardRef<HTMLDivElement, {
   states: TournamentState[]
@@ -122,60 +120,77 @@ const ScheduleView = forwardRef<HTMLDivElement, {
     return null
   }
 
-  return (
-    <div ref={ref} className="-mx-4 overflow-x-auto [&::-webkit-scrollbar]:hidden"
-         style={{ scrollbarWidth: 'none' }}>
-      <div
-        className="grid gap-x-3 gap-y-3 pb-4 pl-4 pr-4"
-        style={{ gridTemplateColumns: `${TIME_W}px repeat(${columns.length}, minmax(${COL_MIN}px, 1fr))` }}
-      >
-        {/* heading row — plain, scrolls with the page like the bracket columns */}
-        <div className="sticky left-0 z-20 bg-background" style={{ width: TIME_W }} />
-        {columns.map(c => (
-          <div key={c.key} ref={el => registerCol(c.key, el)}
-               className="truncate pb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            {c.label}
-          </div>
-        ))}
+  // ---- row height sync ----
+  const rowRefs = useRef<(HTMLDivElement | null)[]>([])
+  const [heights, setHeights] = useState<number[]>([])
+  useLayoutEffect(() => {
+    const els = rowRefs.current.filter(Boolean) as HTMLDivElement[]
+    const measure = () => setHeights(els.map(el => el.getBoundingClientRect().height))
+    measure()
+    const ro = new ResizeObserver(measure)
+    els.forEach(el => ro.observe(el))
+    return () => ro.disconnect()
+  }, [times, columns, states, blocks])
 
-        {/* one row per distinct start time */}
-        {times.map(time => {
-          const spanning = blocks.filter(b => (b.start_time || '') === time && (!b.court || b.court === 'ALL'))
+  const HEAD_H = 28
+
+  return (
+    <div className="-mx-4 flex">
+      {/* fixed time gutter */}
+      <div className="shrink-0 pl-4" style={{ width: TIME_W + 16 }}>
+        <div style={{ height: HEAD_H }} />
+        {times.map((time, i) => {
           const [hhmm, ap] = splitTime(time)
           return (
-            <Fragment key={time || 'tbd'}>
-              <div className="sticky left-0 z-20 flex flex-col items-end bg-background pr-2 pt-1.5 text-right"
-                   style={{ width: TIME_W }}>
-                <span className="font-mono text-[11px] leading-tight tabular-nums text-muted-foreground">{hhmm}</span>
-                {ap && <span className="font-mono text-[9px] leading-tight text-muted-foreground/70">{ap}</span>}
-              </div>
+            <div key={time || 'tbd'} style={{ height: heights[i] ?? 'auto', marginBottom: GAP }}
+                 className="flex flex-col items-end pr-2 pt-1.5 text-right">
+              <span className="font-mono text-[11px] leading-tight tabular-nums text-muted-foreground">{hhmm}</span>
+              {ap && <span className="font-mono text-[9px] leading-tight text-muted-foreground/70">{ap}</span>}
+            </div>
+          )
+        })}
+      </div>
 
-              {spanning.length > 0 ? (
-                <div style={{ gridColumn: `2 / span ${columns.length}` }} className="space-y-2">
-                  {spanning.map(b => <BlockCell key={b.id} block={b} wide />)}
-                </div>
-              ) : (
-                columns.map(c => {
+      {/* scrolling court grid */}
+      <div ref={ref} className="min-w-0 flex-1 overflow-x-auto scroll-smooth [&::-webkit-scrollbar]:hidden"
+           style={{ scrollbarWidth: 'none' }}>
+        <div style={{ width: columns.length * (COL_W + GAP) + 16 }} className="pr-4">
+          <div className="flex" style={{ gap: GAP, height: HEAD_H }}>
+            {columns.map(c => (
+              <div key={c.key} ref={el => registerCol(c.key, el)} style={{ width: COL_W }}
+                   className="shrink-0 truncate text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                {c.label}
+              </div>
+            ))}
+          </div>
+
+          {times.map((time, i) => {
+            const spanning = blocks.filter(b => (b.start_time || '') === time && (!b.court || b.court === 'ALL'))
+            return (
+              <div key={time || 'tbd'} ref={el => { rowRefs.current[i] = el }}
+                   className="flex items-stretch" style={{ gap: GAP, marginBottom: GAP }}>
+                {spanning.length > 0 ? (
+                  <div className="space-y-2" style={{ width: columns.length * (COL_W + GAP) - GAP }}>
+                    {spanning.map(b => <BlockCell key={b.id} block={b} wide />)}
+                  </div>
+                ) : columns.map(c => {
                   const hit = cellAt(time, c.key)
                   const blk = blocks.find(b => (b.start_time || '') === time && b.court === c.key)
                   return (
-                    <div key={c.key} className="min-w-0">
+                    <div key={c.key} style={{ width: COL_W }} className="shrink-0">
                       {hit ? (
                         <MatchCell state={hit.state} match={hit.match}
                                    number={numsFor.get(hit.state)![hit.match.id]}
                                    onSelect={id => onSelect(hit.state, id)} />
-                      ) : blk ? (
-                        <BlockCell block={blk} />
-                      ) : (
-                        <div className="h-full min-h-10 rounded-xl border border-dashed border-border/40" />
-                      )}
+                      ) : blk ? <BlockCell block={blk} />
+                        : <div className="h-full min-h-10 rounded-xl border border-dashed border-border/40" />}
                     </div>
                   )
-                })
-              )}
-            </Fragment>
-          )
-        })}
+                })}
+              </div>
+            )
+          })}
+        </div>
       </div>
     </div>
   )

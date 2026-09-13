@@ -14,6 +14,7 @@ const router = createHashRouter([
     children: [
       { index: true, element: <EventsPage /> },
       { path: 't/:slug', element: <TournamentPage /> },
+      { path: 't/:slug/:view', element: <TournamentPage /> },
       { path: 't/:slug/m/:matchId', element: <MatchPage /> },
     ],
   },
