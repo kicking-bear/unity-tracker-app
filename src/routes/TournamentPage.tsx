@@ -9,6 +9,7 @@ import { useRoleContext } from '@/lib/roleContext'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 import Bracket, { bracketColumns, LiveDot } from '@/components/Bracket'
 import ScheduleView, { courtColumns } from '@/components/ScheduleView'
@@ -60,13 +61,16 @@ export default function TournamentPage() {
 
   const registerCol = useCallback((key: string, el: HTMLDivElement | null) => { cols.current[key] = el }, [])
 
+  const lockUntil = useRef(0)
+
   const goTo = useCallback((key: string) => {
     const el = cols.current[key], sc = scroller.current
     if (!el || !sc) return
-    const left = sc.scrollLeft + el.getBoundingClientRect().left - sc.getBoundingClientRect().left - (view === 'bracket' ? 16 : 0)
-    sc.scrollTo({ left: Math.max(0, left), behavior: 'smooth' })
+    const left = sc.scrollLeft + el.getBoundingClientRect().left - sc.getBoundingClientRect().left - 16
     setActive(key)
-  }, [view])
+    lockUntil.current = Date.now() + 600   // let the smooth scroll finish first
+    sc.scrollTo({ left: Math.max(0, left), behavior: 'smooth' })
+  }, [])
 
   useEffect(() => { positioned.current = false; cols.current = {} }, [view, slug])
 
@@ -83,17 +87,12 @@ export default function TournamentPage() {
     })
   }, [state, columns, view, goTo])
 
-  // keep a chip selected whenever the column set changes (e.g. on resize)
-  useEffect(() => {
-    const list = view === 'bracket' ? columns : schedCols
-    if (!list.length) return
-    if (!active || !list.some(c => c.key === active)) setActive(list[0].key)
-  }, [columns, schedCols, view, active])
 
   useEffect(() => {
     const sc = scroller.current
     if (!sc || view !== 'bracket') return
     const onScroll = () => {
+      if (Date.now() < lockUntil.current) return
       const scRect = sc.getBoundingClientRect()
       let best: string | null = null, bestD = Infinity
       for (const [k, el] of Object.entries(cols.current)) {
@@ -139,27 +138,23 @@ export default function TournamentPage() {
             {state.event?.name} — {view === 'schedule' ? 'Schedule' : state.tournament.name}
           </h1>
         ) : (
-          <div className="flex shrink-0 overflow-hidden rounded-full border">
-            <Button size="sm" variant={view === 'bracket' ? 'default' : 'ghost'}
-                    aria-label="Bracket view" title="Bracket view"
-                    className="h-8 rounded-none px-2.5 sm:px-3" onClick={() => setView('bracket')}>
-              <Rows3 className="size-4 sm:mr-1.5 sm:size-3.5" />
-              <span className="hidden sm:inline">Bracket</span>
-            </Button>
-            <Button size="sm" variant={view === 'schedule' ? 'default' : 'ghost'}
-                    aria-label="Schedule view" title="Schedule view"
-                    className="h-8 rounded-none px-2.5 sm:px-3" onClick={() => setView('schedule')}>
-              <CalendarDays className="size-4 sm:mr-1.5 sm:size-3.5" />
-              <span className="hidden sm:inline">Schedule</span>
-            </Button>
-          </div>
+          <Tabs value={view} onValueChange={v => setView(v as View)} className="shrink-0">
+            <TabsList className="h-9">
+              <TabsTrigger value="bracket" className="gap-1.5 px-3 text-xs sm:text-sm">
+                <Rows3 className="size-3.5" />Bracket
+              </TabsTrigger>
+              <TabsTrigger value="schedule" className="gap-1.5 px-3 text-xs sm:text-sm">
+                <CalendarDays className="size-3.5" />Schedule
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
         )}
 
         <div className="ml-auto flex min-w-0 items-center gap-1">
           {!fs && view === 'bracket' && (
             <Select value={slug} onValueChange={v => navigate(`/t/${v}`)}>
-              <SelectTrigger className="h-9 w-auto min-w-0 max-w-[52vw] gap-2 rounded-lg px-3
-                                        text-sm font-semibold sm:max-w-none sm:text-base">
+              <SelectTrigger className="h-9 w-[160px] gap-2 rounded-lg px-3 text-sm font-semibold
+                                        [&>span]:min-w-0 [&>span]:truncate">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent align="end">
