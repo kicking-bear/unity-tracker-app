@@ -41,7 +41,7 @@ export default function EventsPage() {
       {events.map(ev => {
         const first = ev.tournaments[0]
         return (
-          <Card key={ev.id} className="w-full max-w-[360px] gap-0 p-4">
+          <Card key={ev.id} className="w-full gap-0 p-4 sm:max-w-[360px]">
             {/* header */}
             <div className="flex items-start gap-3">
               <div className="min-w-0">

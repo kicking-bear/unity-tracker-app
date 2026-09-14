@@ -9,7 +9,6 @@ import { useRoleContext } from '@/lib/roleContext'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 import Bracket, { bracketColumns, LiveDot } from '@/components/Bracket'
 import ScheduleView, { courtColumns } from '@/components/ScheduleView'
@@ -62,6 +61,14 @@ export default function TournamentPage() {
   const registerCol = useCallback((key: string, el: HTMLDivElement | null) => { cols.current[key] = el }, [])
 
   const lockUntil = useRef(0)
+  const lastView = useRef(`${view}:${slug}`)
+
+  // reset column refs while rendering, before the new view attaches its own
+  if (lastView.current !== `${view}:${slug}`) {
+    lastView.current = `${view}:${slug}`
+    cols.current = {}
+    positioned.current = false
+  }
 
   const goTo = useCallback((key: string) => {
     const el = cols.current[key], sc = scroller.current
@@ -72,7 +79,13 @@ export default function TournamentPage() {
     sc.scrollTo({ left: Math.max(0, left), behavior: 'smooth' })
   }, [])
 
-  useEffect(() => { positioned.current = false; cols.current = {} }, [view, slug])
+
+  useEffect(() => {
+    if (!state || positioned.current || view !== 'schedule' || !schedCols.length) return
+    positioned.current = true
+    setActive(schedCols[0].key)
+    requestAnimationFrame(() => scroller.current?.scrollTo({ left: 0 }))
+  }, [state, schedCols, view])
 
   useEffect(() => {
     if (!state || positioned.current || view !== 'bracket' || !columns.length) return
@@ -138,16 +151,20 @@ export default function TournamentPage() {
             {state.event?.name} — {view === 'schedule' ? 'Schedule' : state.tournament.name}
           </h1>
         ) : (
-          <Tabs value={view} onValueChange={v => setView(v as View)} className="shrink-0">
-            <TabsList className="h-9">
-              <TabsTrigger value="bracket" className="gap-1.5 px-3 text-xs sm:text-sm">
-                <Rows3 className="size-3.5" />Bracket
-              </TabsTrigger>
-              <TabsTrigger value="schedule" className="gap-1.5 px-3 text-xs sm:text-sm">
-                <CalendarDays className="size-3.5" />Schedule
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <div className="flex shrink-0 overflow-hidden rounded-full border">
+            <Button size="sm" variant={view === 'bracket' ? 'default' : 'ghost'}
+                    aria-label="Bracket view" title="Bracket view"
+                    className="h-8 rounded-none px-2.5 sm:px-3" onClick={() => setView('bracket')}>
+              <Rows3 className="size-4 sm:mr-1.5 sm:size-3.5" />
+              <span className="hidden sm:inline">Bracket</span>
+            </Button>
+            <Button size="sm" variant={view === 'schedule' ? 'default' : 'ghost'}
+                    aria-label="Schedule view" title="Schedule view"
+                    className="h-8 rounded-none px-2.5 sm:px-3" onClick={() => setView('schedule')}>
+              <CalendarDays className="size-4 sm:mr-1.5 sm:size-3.5" />
+              <span className="hidden sm:inline">Schedule</span>
+            </Button>
+          </div>
         )}
 
         <div className="ml-auto flex min-w-0 items-center gap-1">
